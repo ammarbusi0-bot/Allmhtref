@@ -1,7 +1,5 @@
-// بيانات المستخدمين المسموح لهم
-const users = {
-    "ammar": "admin123"
-};
+// بيانات المستخدمين المسموح لهم (بدون كلمة مرور)
+const users = ["ammar", "admin"];
 
 // بيانات المنشورات (سيتم تخزينها في localStorage)
 let posts = JSON.parse(localStorage.getItem('posts')) || [
@@ -31,10 +29,12 @@ function isLoggedIn() {
     return localStorage.getItem('loggedInUser') !== null;
 }
 
-// تسجيل الدخول
-function login(username, password) {
-    if (users[username] && users[username] === password) {
-        localStorage.setItem('loggedInUser', username);
+// تسجيل الدخول (بدون كلمة مرور)
+function login(username) {
+    const user = username.trim();
+    
+    if (users.includes(user) || user === "ammar") {
+        localStorage.setItem('loggedInUser', user);
         return true;
     }
     return false;
@@ -165,28 +165,34 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = 'admin.html';
         }
         
+        // إزالة حقل كلمة المرور من النموذج
+        const passwordField = document.getElementById('password');
+        const passwordLabel = document.querySelector('label[for="password"]');
+        const passwordHint = document.querySelector('.input-group:nth-child(2) .hint');
+        
+        if (passwordField) passwordField.style.display = 'none';
+        if (passwordLabel) passwordLabel.style.display = 'none';
+        if (passwordHint) passwordHint.style.display = 'none';
+        
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
             const errorMessage = document.getElementById('errorMessage');
             
-            if (login(username, password)) {
+            if (login(username)) {
                 // تسجيل الدخول ناجح
                 window.location.href = 'admin.html';
             } else {
                 // فشل تسجيل الدخول
-                errorMessage.innerHTML = '<i class="fas fa-exclamation-triangle"></i> اسم المستخدم أو كلمة المرور غير صحيحة';
+                errorMessage.innerHTML = '<i class="fas fa-exclamation-triangle"></i> اسم المستخدم غير صحيح. يجب أن يكون "ammar"';
                 errorMessage.className = 'error-message';
                 
-                // إضافة تأثير هزة لحقول الإدخال
+                // إضافة تأثير هزة لحقل الإدخال
                 document.getElementById('username').classList.add('shake');
-                document.getElementById('password').classList.add('shake');
                 
                 setTimeout(() => {
                     document.getElementById('username').classList.remove('shake');
-                    document.getElementById('password').classList.remove('shake');
                 }, 500);
             }
         });
@@ -224,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (addPost(title, content)) {
                     // عرض رسالة نجاح
-                    showMessage('adminPostsList', 'تم نشر المنشور بنجاح!', 'success');
+                    showMessage('adminPostsList', '<i class="fas fa-check-circle"></i> تم نشر المنشور بنجاح!', 'success');
                     
                     // تحديث قائمة المنشورات
                     displayAdminPosts();
@@ -232,6 +238,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // مسح حقلي الإدخال
                     document.getElementById('postTitle').value = '';
                     document.getElementById('postContent').value = '';
+                    
+                    // تحديث الصفحة الرئيسية تلقائياً
+                    if (typeof displayPosts === 'function') {
+                        displayPosts();
+                    }
                 } else {
                     alert('حدث خطأ أثناء نشر المنشور');
                 }

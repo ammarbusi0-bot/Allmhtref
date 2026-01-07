@@ -177,7 +177,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.location.href = 'admin.html';
             } else {
                 // فشل تسجيل الدخول
-                showMessage('errorMessage', 'اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
+                errorMessage.innerHTML = '<i class="fas fa-exclamation-triangle"></i> اسم المستخدم أو كلمة المرور غير صحيحة';
+                errorMessage.className = 'error-message';
+                
+                // إضافة تأثير هزة لحقول الإدخال
+                document.getElementById('username').classList.add('shake');
+                document.getElementById('password').classList.add('shake');
+                
+                setTimeout(() => {
+                    document.getElementById('username').classList.remove('shake');
+                    document.getElementById('password').classList.remove('shake');
+                }, 500);
             }
         });
     }

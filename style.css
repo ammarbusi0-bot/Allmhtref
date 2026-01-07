@@ -1,0 +1,566 @@
+/* التنسيقات العامة */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Cairo', sans-serif;
+}
+
+body {
+    background-color: #f8f9fa;
+    color: #333;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* التنسيقات المشتركة */
+header {
+    background: linear-gradient(135deg, #2c3e50, #4a6491);
+    color: white;
+    padding: 1rem 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    flex-wrap: wrap;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.logo i {
+    margin-left: 10px;
+    font-size: 1.8rem;
+}
+
+.nav-links {
+    display: flex;
+    list-style: none;
+}
+
+.nav-links li {
+    margin-right: 1.5rem;
+}
+
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+    display: flex;
+    align-items: center;
+}
+
+.nav-links a i {
+    margin-left: 8px;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.admin-btn {
+    background-color: #e74c3c;
+    padding: 0.5rem 1.5rem !important;
+}
+
+.menu-toggle {
+    display: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+/* الصفحة الرئيسية */
+main {
+    flex: 1;
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+    width: 100%;
+}
+
+.hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #3498db, #8e44ad);
+    color: white;
+    padding: 3rem;
+    border-radius: 15px;
+    margin-bottom: 3rem;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.hero-content h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.hero-content p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+.hero-image i {
+    font-size: 8rem;
+    opacity: 0.8;
+}
+
+.content-section h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+}
+
+.content-section h2 i {
+    margin-left: 10px;
+}
+
+.posts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.post-card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.post-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid #eee;
+}
+
+.post-title {
+    font-size: 1.3rem;
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.post-date {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.post-content {
+    color: #555;
+    line-height: 1.7;
+}
+
+.loading {
+    text-align: center;
+    padding: 3rem;
+    grid-column: 1 / -1;
+}
+
+.loading i {
+    font-size: 3rem;
+    color: #3498db;
+    margin-bottom: 1rem;
+}
+
+/* صفحة تسجيل الدخول */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #2c3e50, #4a6491);
+}
+
+.login-container {
+    background-color: white;
+    border-radius: 15px;
+    padding: 3rem;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-header i {
+    font-size: 4rem;
+    color: #3498db;
+    margin-bottom: 1rem;
+}
+
+.login-header h1 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: #7f8c8d;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.input-group label i {
+    margin-left: 8px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.input-group input:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.hint {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-top: 0.5rem;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-btn i {
+    margin-left: 10px;
+}
+
+.login-btn:hover {
+    background: linear-gradient(135deg, #2980b9, #1c5a80);
+}
+
+.login-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.login-footer a {
+    color: #3498db;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-footer a i {
+    margin-right: 8px;
+}
+
+.login-footer a:hover {
+    text-decoration: underline;
+}
+
+.error-message {
+    color: #e74c3c;
+    margin-top: 1rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* صفحة لوحة التحكم */
+.admin-info {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+
+.admin-info i {
+    margin-left: 8px;
+    font-size: 1.5rem;
+}
+
+.admin-main {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.admin-welcome {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+}
+
+.admin-welcome h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.admin-welcome p {
+    opacity: 0.9;
+}
+
+.admin-section {
+    background-color: white;
+    border-radius: 10px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.admin-section h2 {
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.admin-section h2 i {
+    margin-left: 10px;
+}
+
+textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    resize: vertical;
+    font-family: 'Cairo', sans-serif;
+}
+
+textarea:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.publish-btn {
+    padding: 0.8rem 2rem;
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    display: flex;
+    align-items: center;
+}
+
+.publish-btn i {
+    margin-left: 8px;
+}
+
+.publish-btn:hover {
+    background: linear-gradient(135deg, #27ae60, #219653);
+}
+
+.clear-btn {
+    padding: 0.8rem 2rem;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    display: flex;
+    align-items: center;
+}
+
+.clear-btn i {
+    margin-left: 8px;
+}
+
+.clear-btn:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+}
+
+.posts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.post-item {
+    background-color: #f8f9fa;
+    border-right: 5px solid #3498db;
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.post-item-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+}
+
+.post-item-title {
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.post-item-date {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.post-item-content {
+    color: #555;
+    line-height: 1.6;
+}
+
+/* التذييل */
+footer {
+    background-color: #2c3e50;
+    color: white;
+    text-align: center;
+    padding: 1.5rem;
+    margin-top: auto;
+}
+
+.footer-links {
+    margin-top: 1rem;
+}
+
+.footer-links a {
+    color: white;
+    margin: 0 10px;
+    font-size: 1.2rem;
+    transition: color 0.3s;
+}
+
+.footer-links a:hover {
+    color: #3498db;
+}
+
+/* تصميم متجاوب */
+@media (max-width: 768px) {
+    .nav-links {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        margin-top: 1rem;
+    }
+    
+    .nav-links.active {
+        display: flex;
+    }
+    
+    .nav-links li {
+        margin: 0.5rem 0;
+        width: 100%;
+    }
+    
+    .nav-links a {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .menu-toggle {
+        display: block;
+    }
+    
+    .hero {
+        flex-direction: column;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .hero-image i {
+        font-size: 5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .hero-content h1 {
+        font-size: 2rem;
+    }
+    
+    .admin-info {
+        display: none;
+    }
+    
+    .login-container {
+        padding: 2rem;
+        margin: 1rem;
+    }
+}
+
+/* الرسائل */
+.message {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}

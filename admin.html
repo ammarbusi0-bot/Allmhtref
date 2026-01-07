@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم المشرف</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <i class="fas fa-user-shield"></i>
+                <span>لوحة تحكم المشرف</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="admin.html" class="active"><i class="fas fa-tachometer-alt"></i> لوحة التحكم</a></li>
+                <li><a href="index.html"><i class="fas fa-home"></i> عرض الموقع</a></li>
+                <li><a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a></li>
+            </ul>
+            <div class="admin-info">
+                <i class="fas fa-user-circle"></i>
+                <span id="adminName">المشرف</span>
+            </div>
+        </nav>
+    </header>
+
+    <main class="admin-main">
+        <div class="admin-welcome">
+            <h1><i class="fas fa-user-cog"></i> مرحباً بك في لوحة التحكم</h1>
+            <p>يمكنك هنا إضافة منشورات جديدة تظهر في الصفحة الرئيسية للموقع</p>
+        </div>
+
+        <section class="admin-section">
+            <h2><i class="fas fa-plus-circle"></i> إضافة منشور جديد</h2>
+            <div class="admin-form">
+                <div class="input-group">
+                    <label for="postTitle"><i class="fas fa-heading"></i> عنوان المنشور</label>
+                    <input type="text" id="postTitle" placeholder="أدخل عنوان المنشور">
+                </div>
+
+                <div class="input-group">
+                    <label for="postContent"><i class="fas fa-edit"></i> محتوى المنشور</label>
+                    <textarea id="postContent" rows="5" placeholder="اكتب محتوى المنشور هنا..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button id="publishBtn" class="publish-btn">
+                        <i class="fas fa-paper-plane"></i> نشر المنشور
+                    </button>
+                    <button id="clearBtn" class="clear-btn">
+                        <i class="fas fa-trash"></i> مسح النص
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="admin-section">
+            <h2><i class="fas fa-history"></i> المنشورات السابقة</h2>
+            <div class="posts-list" id="adminPostsList">
+                <!-- سيتم عرض المنشورات السابقة هنا -->
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>جاري تحميل المنشورات...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>لوحة تحكم المشرف &copy; 2023 | يجب تسجيل الخروج بعد الانتهاء من الاستخدام</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

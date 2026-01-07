@@ -1,0 +1,26 @@
+name: Update Telegram Mirror
+on:
+  schedule:
+    - cron: '*/15 * * * *' # تحديث كل 15 دقيقة
+  workflow_dispatch: # زر تشغيل يدوي
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install requests
+      - name: Update messages
+        run: python update_messages.py
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'Telegram Mirror Bot'
+          git config --global user.email 'bot@github.com'
+          git add index.html
+          git commit -m "Update messages from Telegram" || exit 0
+          git push

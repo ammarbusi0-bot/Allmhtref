@@ -3,33 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قناة linasara2</title>
-    <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .post-container { width: 100%; max-width: 550px; margin-bottom: 15px; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        h1 { color: #0088cc; }
-    </style>
+    <title>الموقع التفاعلي</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <header>
+        <nav>
+            <div class="logo">
+                <i class="fas fa-bullhorn"></i>
+                <span>موقعنا التفاعلي</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="active"><i class="fas fa-home"></i> الرئيسية</a></li>
+                <li><a href="#"><i class="fas fa-info-circle"></i> من نحن</a></li>
+                <li><a href="#"><i class="fas fa-envelope"></i> اتصل بنا</a></li>
+                <li><a href="login.html" class="admin-btn"><i class="fas fa-user-shield"></i> دخول المشرف</a></li>
+            </ul>
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+        </nav>
+    </header>
 
-    <h1>📡 آخر منشورات القناة</h1>
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <h1>مرحباً بكم في موقعنا التفاعلي</h1>
+                <p>هنا يمكنك رؤية آخر التحديثات والمنشورات من المشرفين</p>
+            </div>
+            <div class="hero-image">
+                <i class="fas fa-comments"></i>
+            </div>
+        </section>
 
-    <div class="post-container">
-        <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                data-telegram-post="linasara2/10" data-width="100%"></script>
-    </div>
+        <section class="content-section">
+            <h2><i class="fas fa-bullhorn"></i> المنشورات الحديثة</h2>
+            <div class="posts-container" id="postsContainer">
+                <!-- سيتم تحميل المنشورات هنا من خلال JavaScript -->
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>جاري تحميل المنشورات...</p>
+                </div>
+            </div>
+        </section>
+    </main>
 
-    <div class="post-container">
-        <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                data-telegram-post="linasara2/9" data-width="100%"></script>
-    </div>
+    <footer>
+        <p>جميع الحقوق محفوظة &copy; 2023 | تم التطوير بواسطة فريق الموقع التفاعلي</p>
+        <div class="footer-links">
+            <a href="#"><i class="fab fa-facebook"></i></a>
+            <a href="#"><i class="fab fa-twitter"></i></a>
+            <a href="#"><i class="fab fa-instagram"></i></a>
+        </div>
+    </footer>
 
-    <div class="post-container">
-        <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                data-telegram-post="linasara2/8" data-width="100%"></script>
-    </div>
-
-    <p style="color:gray;">تحديث فوري من Telegram Widgets</p>
-
+    <script src="script.js"></script>
 </body>
 </html>

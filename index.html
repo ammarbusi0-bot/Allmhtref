@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شاشة يوتيوب المميزة - Premium Tube</title>
+    <!-- أيقونات FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ربط ملف التصميم الخارجي -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- شريط التنقل العلوي -->
+    <header class="navbar">
+        <div class="logo">
+            <i class="fa-brands fa-youtube"></i>
+            <span>PremiumTube</span>
+        </div>
+        <div class="search-bar">
+            <input type="text" placeholder="ابحث عن فيديوهات مميزة...">
+            <button><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+        <div class="user-profile">
+            <button class="reset-all-btn" onclick="resetAllVideos()" title="إعادة تعيين جميع الفيديوهات">
+                <i class="fa-solid fa-rotate"></i> إعادة تعيين
+            </button>
+            <div class="user-avatar">
+                <i class="fa-solid fa-user"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- شريط الإحصائيات -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-icon">🎬</div>
+            <div class="stat-info">
+                <h4>إجمالي الفيديوهات</h4>
+                <p id="totalVideos">3</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔓</div>
+            <div class="stat-info">
+                <h4>فيديوهات مفتوحة</h4>
+                <p id="unlockedVideos">0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- عنوان القسم -->
+    <h2 class="section-title"><i class="fa-solid fa-fire"></i> المحتوى الحصري والمميز</h2>
+
+    <!-- شبكة الفيديوهات -->
+    <main class="video-grid">
+        <!-- الفيديو الأول -->
+        <div class="video-card" id="vid-1" onclick="openPaywall('vid-1', 'أسرار برمجة الذكاء الاصطناعي في 2026', '4.99$')">
+            <span class="badge-premium">PREMIUM</span>
+            <div class="video-thumbnail blurred">
+                <img src="https://picsum.photos/600/350?random=1" alt="فيديو">
+                <div class="lock-overlay">
+                    <div class="lock-icon-large"><i class="fa-solid fa-lock"></i></div>
+                </div>
+                <div class="duration-badge">12:45</div>
+            </div>
+            <div class="video-info">
+                <h3>أسرار برمجة الذكاء الاصطناعي في 2026 وكيفية استغلاله</h3>
+                <div class="channel-name">قناة المبرمج المحترف <i class="fa-solid fa-circle-check"></i></div>
+                <div class="views">15 ألف مشاهدة • قبل يومين</div>
+                <span class="price-tag">4.99$</span>
+            </div>
+        </div>
+
+        <!-- الفيديو الثاني -->
+        <div class="video-card" id="vid-2" onclick="openPaywall('vid-2', 'كورس اختراق الثغرات الأمنية كامل', '9.99$')">
+            <span class="badge-premium">VIP</span>
+            <div class="video-thumbnail blurred">
+                <img src="https://picsum.photos/600/350?random=2" alt="فيديو">
+                <div class="lock-overlay">
+                    <div class="lock-icon-large"><i class="fa-solid fa-lock"></i></div>
+                </div>
+                <div class="duration-badge">1:45:20</div>
+            </div>
+            <div class="video-info">
+                <h3>كورس اختراق الثغرات الأمنية كامل من الصفر إلى الاحتراف (حصري)</h3>
+                <div class="channel-name">شبكة الأمان الرقمي <i class="fa-solid fa-circle-check"></i></div>
+                <div class="views">90 ألف مشاهدة • قبل أسبوع</div>
+                <span class="price-tag">9.99$</span>
+            </div>
+        </div>
+
+        <!-- الفيديو الثالث -->
+        <div class="video-card" id="vid-3" onclick="openPaywall('vid-3', 'كيف تجني ألف دولار أسبوعياً من جيت هاب', '2.99$')">
+            <span class="badge-premium">PRO</span>
+            <div class="video-thumbnail blurred">
+                <img src="https://picsum.photos/600/350?random=3" alt="فيديو">
+                <div class="lock-overlay">
+                    <div class="lock-icon-large"><i class="fa-solid fa-lock"></i></div>
+                </div>
+                <div class="duration-badge">22:15</div>
+            </div>
+            <div class="video-info">
+                <h3>كيف تجني ألف دولار أسبوعياً من منصة جيت هاب والشغل الحر</h3>
+                <div class="channel-name">ثروة تك <i class="fa-solid fa-circle-check"></i></div>
+                <div class="views">200 ألف مشاهدة • قبل شهر</div>
+                <span class="price-tag">2.99$</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- نافذة الدفع المنبثقة -->
+    <div id="paywallModal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closePaywall()">&times;</button>
+            <div class="modal-icon"><i class="fa-solid fa-credit-card" style="color: var(--accent);"></i></div>
+            <h2>محتوى <span>مقفل!</span></h2>
+            <p>أنت على وشك مشاهدة: <span id="modalVideoTitle" class="video-title-highlight"></span></p>
+            <p>يرجى إتمام الدفع لفك تشويش الفيديو ومشاهدته بجودة عالية.</p>
+            <div class="price-display" id="modalVideoPrice">0.00$</div>
+            <button class="pay-btn" id="payBtn" onclick="processPayment()">تأكيد الدفع والتشغيل</button>
+        </div>
+    </div>
+
+    <!-- شاشة التحميل الوهمية -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <h3 style="letter-spacing: 1px;">جاري الاتصال ببوابة الدفع الآمنة...</h3>
+    </div>
+
+    <!-- التنبيه الصغير (Toast) -->
+    <div id="toast" class="toast"><i class="fa-solid fa-circle-check"></i> تم فك تشفير الفيديو بنجاح! مشاهدة ممتعة.</div>
+
+    <!-- ربط ملف العمل الخارجي -->
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة ماركت الأخوة الداخلي</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8f9fa; padding: 20px; direction: rtl; }
+        .box { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h2 { color: #f27a1a; margin-bottom: 15px; font-size: 18px; }
+        input, select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .btn { background: #f27a1a; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; font-size: 13px; }
+        th { background: #eee; }
+        .btn-delete { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+        
+        /* واجهة تسجيل الدخول */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #f8f9fa; z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .login-card {
+            background: white; padding: 30px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة تسجيل الدخول لحماية صفحة الإدارة -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <h2 style="margin-bottom: 20px;"><i class="fa-solid fa-lock"></i> تسجيل دخول الأدمن</h2>
+            <input type="password" id="adminPass" placeholder="أدخل كلمة المرور الحامية">
+            <button class="btn" style="width: 100%;" onclick="checkAdminAuth()">دخول اللوحة</button>
+        </div>
+    </div>
+
+    <!-- محتوى لوحة الإدارة (مخفي حتى تسجيل الدخول) -->
+    <div id="adminContent" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2><i class="fa-solid fa-gears"></i> لوحة الإدارة الحية - ماركت الأخوة</h2>
+            <button class="btn" style="background:#6c757d;" onclick="logoutAdmin()">تسجيل الخروج</button>
+        </div>
+
+        <div class="box">
+            <h2>1. إضافة منتج جديد (Firestore Realtime)</h2>
+            <input type="text" id="pName" placeholder="اسم المنتج الغذائي">
+            <input type="number" id="pPrice" placeholder="السعر (أرقام فقط)">
+            <select id="pCat">
+                <option value="مؤن">مؤن أساسية</option>
+                <option value="ألبان">ألبان وأجبان</option>
+                <option value="زيوت">زيوت وسمن</option>
+                <option value="مشروبات">مشروبات</option>
+            </select>
+            <button class="btn" onclick="saveProduct()">نشر المنتج فوراً إلى قاعدة البيانات</button>
+        </div>
+
+        <div class="box">
+            <h2>2. إدارة المنتجات الحالية</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>المنتج</th>
+                        <th>السعر</th>
+                        <th>التصنيف</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="productsAdminList">
+                    <tr><td colspan="5" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="box">
+            <h2>3. الطلبات الواردة في الوقت الفعلي (Real-time Orders)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>رقم الهاتف</th>
+                        <th>العنوان</th>
+                        <th>الطلب</th>
+                        <th>المبلغ</th>
+                        <th>التاريخ</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersList">
+                    <tr><td colspan="7" style="text-align:center;">جاري استماع الطلبات الواردة...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp } from "./app.js";
+
+        // حماية صفحة الإدارة بكلمة مرور مخصصة (يمكنك تغييرها من هنا)
+        const ADMIN_PASS = "admin123";
+
+        window.checkAdminAuth = function() {
+            const pass = document.getElementById('adminPass').value;
+            if (pass === ADMIN_PASS) {
+                sessionStorage.setItem('alukhowah_admin_logged', 'true');
+                showDashboard();
+            } else {
+                alert('كلمة المرور غير صحيحة!');
+            }
+        };
+
+        window.logoutAdmin = function() {
+            sessionStorage.removeItem('alukhowah_admin_logged');
+            location.reload();
+        };
+
+        function showDashboard() {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('adminContent').style.display = 'block';
+            initRealtimeAdmin();
+        }
+
+        // الحفاظ على الجلسة
+        if (sessionStorage.getItem('alukhowah_admin_logged') === 'true') {
+            showDashboard();
+        }
+
+        function escapeHTML(str) {
+            return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m]);
+        }
+
+        // إضافة منتج إلى Firestore
+        window.saveProduct = async function() {
+            const name = document.getElementById('pName').value.trim();
+            const price = Number(document.getElementById('pPrice').value.trim());
+            const cat = document.getElementById('pCat').value;
+
+            if(!name || isNaN(price) || price <= 0) { 
+                alert('يرجى كتابة الاسم والسعر بشكل صحيح'); 
+                return; 
+            }
+
+            try {
+                await addDoc(collection(db, "products"), {
+                    name: name,
+                    price: price,
+                    category: cat,
+                    icon: 'fa-box',
+                    createdAt: serverTimestamp()
+                });
+                alert('تم نشر المنتج بنجاح إلى Firestore!');
+                document.getElementById('pName').value = '';
+                document.getElementById('pPrice').value = '';
+            } catch (error) {
+                alert('حدث خطأ أثناء الإضافة: ' + error.message);
+            }
+        };
+
+        // حذف منتج من Firestore
+        window.deleteProduct = async function(docId) {
+            if(!confirm('هل أنت تأكد من حذف هذا المنتج نهائياً؟')) return;
+            try {
+                await deleteDoc(doc(db, "products", docId));
+            } catch (error) {
+                alert('حدث خطأ أثناء الحذف: ' + error.message);
+            }
+        };
+
+        // حذف طلب مكتمل من Firestore
+        window.deleteOrder = async function(docId) {
+            if(!confirm('هل تم إنهاء وإكمال هذا الطلب لحذفه؟')) return;
+            try {
+                await deleteDoc(doc(db, "orders", docId));
+            } catch (error) {
+                alert('حدث خطأ أثناء إزالة الطلب: ' + error.message);
+            }
+        };
+
+        // الاستماع الحي والتحديث الفوري للبيانات والطلبات
+        function initRealtimeAdmin() {
+            // الاستماع الحي للمنتجات
+            const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
+            onSnapshot(qProducts, (snapshot) => {
+                const list = document.getElementById('productsAdminList');
+                if (snapshot.empty) {
+                    list.innerHTML = '<tr><td colspan="5" style="text-align:center;">لا توجد منتجات حالياً.</td></tr>';
+                    return;
+                }
+                let idx = 1;
+                list.innerHTML = snapshot.docs.map(doc => {
+                    const p = doc.data();
+                    return `
+                        <tr>
+                            <td>${idx++}</td>
+                            <td>${escapeHTML(p.name)}</td>
+                            <td>${p.price} ل.س</td>
+                            <td>${escapeHTML(p.category)}</td>
+                            <td><button class="btn-delete" onclick="deleteProduct('${doc.id}')">حذف</button></td>
+                        </tr>
+                    `;
+                }).join('');
+            });
+
+            // الاستماع الحي للطلبات الواردة
+            const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+            onSnapshot(qOrders, (snapshot) => {
+                const ordersList = document.getElementById('ordersList');
+                if (snapshot.empty) {
+                    ordersList.innerHTML = '<tr><td colspan="7" style="text-align:center;">لا توجد طلبات واردة حالياً.</td></tr>';
+                    return;
+                }
+                let idx = 1;
+                ordersList.innerHTML = snapshot.docs.map(doc => {
+                    const o = doc.data();
+                    return `
+                        <tr>
+                            <td>${idx++}</td>
+                            <td><strong>${escapeHTML(o.phone)}</strong></td>
+                            <td>${escapeHTML(o.address || 'غير محدد')}</td>
+                            <td>${escapeHTML(o.items)}</td>
+                            <td>${escapeHTML(o.total)} ل.س</td>
+                            <td>${o.date || 'الآن'}</td>
+                            <td><button class="btn-delete" style="background:#28a745;" onclick="deleteOrder('${doc.id}')">تم التنفيذ</button></td>
+                        </tr>
+                    `;
+                }).join('');
+            });
+        }
+    </script>
+</body>
+</html>

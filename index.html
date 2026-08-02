@@ -3,58 +3,346 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Tube VIP - المنصة الحصرية</title>
+    <title>ماركت الأخوة - تسوق مقاديرك الغذائية</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --primary: #f27a1a;
+            --primary-dark: #d6640c;
+            --bg: #f5f5f5;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --gray: #878787;
+            --border: #e6e6e6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding-bottom: 80px;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 12px 15px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 38px 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #f0f0f0;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-box i {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+        }
+
+        .categories {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 12px 15px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            scrollbar-width: none;
+        }
+
+        .categories::-webkit-scrollbar { display: none; }
+
+        .cat-chip {
+            white-space: nowrap;
+            padding: 6px 14px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .cat-chip.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 15px auto;
+            padding: 0 10px;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .product-card:hover { transform: translateY(-3px); }
+
+        .fav-btn {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: var(--gray);
+            cursor: pointer;
+        }
+
+        .fav-btn.active { color: #e63946; }
+
+        .product-img {
+            width: 100%;
+            height: 120px;
+            background-color: #fafafa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: var(--primary);
+        }
+
+        .product-info { padding: 10px; }
+
+        .product-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            height: 36px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .product-price {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .btn-add-cart {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: white;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 11px;
+            color: var(--gray);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 18px; margin-bottom: 3px; }
+
+        .cart-badge {
+            position: absolute;
+            top: -4px; right: 8px;
+            background: red; color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px; font-weight: bold;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: flex-end;
+        }
+
+        .modal.open { display: flex; }
+
+        .modal-content {
+            background: white;
+            width: 100%;
+            max-height: 80vh;
+            border-radius: 16px 16px 0 0;
+            padding: 20px;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .input-group { margin-top: 15px; }
+        .input-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
+
+        .btn-checkout {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
-    <header class="navbar">
-        <div class="logo">
-            <i class="fa-solid fa-play-circle"></i>
-            <span>Premium<span>Tube</span></span>
+    <header>
+        <div class="header-top">
+            <div class="logo"><i class="fa-solid fa-basket-shopping"></i> ماركت الأخوة</div>
         </div>
-        <div class="search-bar">
-            <input type="text" id="searchInput" placeholder="ابحث عن العروض الحصرية والمقاطع المسربة...">
-            <button id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i></button>
-        </div>
-        <div class="user-profile">
-            <div class="vip-badge"><i class="fa-solid fa-crown"></i> عضوية VIP نشطة</div>
-            <div class="user-avatar">M</div>
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="ابحث عن المنتجات..." onkeyup="filterProducts()">
         </div>
     </header>
 
-    <div class="main-container">
-        <aside class="sidebar">
-            <ul class="sidebar-menu">
-                <li class="active" data-category="all"><i class="fa-solid fa-fire-flame-curved"></i> المقاطع الشائعة</li>
-                <li data-category="leaks"><i class="fa-solid fa-unlock-keyhole"></i> تسريبات حصرية</li>
-                <li data-category="action"><i class="fa-solid fa-burst"></i> إثارة وأكشن</li>
-                <li data-category="cinema"><i class="fa-solid fa-film"></i> سينما الغموض</li>
-            </ul>
-        </aside>
-
-        <main class="content-area">
-            <div class="category-tags">
-                <span class="tag active">الكل</span>
-                <span class="tag">موصى به لك</span>
-                <span class="tag">تمت إضافته حديثاً</span>
-                <span class="tag">الأعلى تقييماً</span>
-            </div>
-
-            <div class="video-grid" id="videoGrid">
-                </div>
-        </main>
+    <div class="categories">
+        <div class="cat-chip active" onclick="filterCat('all', this)">الكل</div>
+        <div class="cat-chip" onclick="filterCat('مؤن', this)">مؤن أساسية</div>
+        <div class="cat-chip" onclick="filterCat('ألبان', this)">ألبان وأجبان</div>
+        <div class="cat-chip" onclick="filterCat('زيوت', this)">زيوت وسمن</div>
+        <div class="cat-chip" onclick="filterCat('مشروبات', this)">مشروبات</div>
     </div>
 
-    <div class="modal" id="videoModal">
-        <div class="modal-content">
-            <button class="close-btn" id="closeModal">&times;</button>
-            <div id="modalBody">
-                </div>
+    <div class="container">
+        <div class="products-grid" id="productsGrid">
+            <p style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المنتجات في الوقت الفعلي...</p>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="resetToHome()">
+            <i class="fa-solid fa-house"></i>
+            الرئيسية
+        </div>
+        <div class="nav-item" onclick="toggleCartModal()">
+            <i class="fa-solid fa-cart-shopping"></i>
+            السلة
+            <span class="cart-badge" id="cartCount">0</span>
+        </div>
+    </div>
+
+    <div class="modal" id="cartModal" onclick="if(event.target === this) toggleCartModal()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>سلة المشتريات</h3>
+                <i class="fa-solid fa-xmark" style="font-size:20px; cursor:pointer;" onclick="toggleCartModal()"></i>
+            </div>
+            
+            <div id="cartItemsContainer" style="margin-top:15px;"></div>
+
+            <div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:15px; font-size:16px;">
+                <span>الإجمالي:</span>
+                <span id="cartTotalPrice" style="color:var(--primary);">0 ل.س</span>
+            </div>
+
+            <form id="checkoutForm">
+                <div class="input-group">
+                    <label>رقم الهاتف للتواصل والدفع (مطلوب):</label>
+                    <input type="tel" id="userPhone" placeholder="05XXXXXXXX" required>
+                </div>
+                <div class="input-group">
+                    <label>عنوان التسليم والتفاصيل:</label>
+                    <input type="text" id="userAddress" placeholder="الحي / الشارع / البناء" required>
+                </div>
+                <button type="submit" class="btn-checkout" id="submitBtn">تأكيد الطلب</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- تحميل Firebase و JavaScript كموديول -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>

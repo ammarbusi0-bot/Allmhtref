@@ -146,19 +146,27 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             color: var(--gray);
             cursor: pointer;
+            z-index: 2;
         }
 
         .fav-btn.active { color: #e63946; }
 
         .product-img {
             width: 100%;
-            height: 120px;
+            height: 130px;
             background-color: #fafafa;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 40px;
             color: var(--primary);
+            overflow: hidden;
+        }
+
+        .product-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .product-info { padding: 10px; }
@@ -298,7 +306,7 @@
 
     <div class="container">
         <div class="products-grid" id="productsGrid">
-            <p style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المنتجات في الوقت الفعلي...</p>
+            <p style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المنتجات من Firestore...</p>
         </div>
     </div>
 
@@ -342,7 +350,6 @@
         </div>
     </div>
 
-    <!-- تحميل Firebase و JavaScript كموديول -->
     <script type="module" src="app.js"></script>
 </body>
 </html>

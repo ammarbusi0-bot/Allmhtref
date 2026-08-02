@@ -1,4 +1,3 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
     getFirestore, 
@@ -12,7 +11,6 @@ import {
     serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
   authDomain: "market-30cd6.firebaseapp.com",
@@ -23,17 +21,39 @@ const firebaseConfig = {
   measurementId: "G-F7ZK7JFWHZ"
 };
 
-// Initialize Firebase & Firestore
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// التصدير للاستخدام في admin.html
 export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp };
 
 let globalProducts = [];
 let cart = [];
 
-// جلب المنتجات الحية من Firestore (Real-time)
+// دالة رفع الصور المباشرة لـ ImgBB
+async function uploadImageToImgBB(fileInput) { 
+    const file = fileInput.files[0]; 
+    if (!file) return null; 
+
+    const formData = new FormData(); 
+    formData.append('image', file); 
+
+    try { 
+        const response = await fetch('https://api.imgbb.com/1/upload?key=42b6820dc31a25d977adefc41f83aa70', { 
+            method: 'POST', 
+            body: formData 
+        }); 
+        const data = await response.json(); 
+        return data.success ? data.data.url : null; 
+    } catch (error) { 
+        console.error("خطأ في رفع الصورة إلى ImgBB:", error); 
+        return null; 
+    } 
+}
+
+// ربط الدالة بصراحة بالنطاق العام للمتصفح حتى تتمكن admin.html من استدعائها
+window.uploadImageToImgBB = uploadImageToImgBB;
+
+// الاستماع المباشر للمنتجات في Firestore
 if (document.getElementById('productsGrid')) {
     const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
@@ -43,16 +63,14 @@ if (document.getElementById('productsGrid')) {
         }));
         displayProducts(globalProducts);
     }, (error) => {
-        console.error("خطأ جلب المنتجات من Firestore:", error);
+        console.error("خطأ جلب المنتجات:", error);
     });
 }
 
-// جلب المفضلة المخزنة موقتاً
 function getFavorites() {
     return JSON.parse(localStorage.getItem('alukhowah_favs') || '[]');
 }
 
-// إدارة المفضلة
 window.toggleFavorite = function(id) {
     let favs = getFavorites();
     const strId = String(id);
@@ -65,7 +83,6 @@ window.toggleFavorite = function(id) {
     filterProducts();
 };
 
-// عرض المنتجات
 function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
@@ -79,12 +96,17 @@ function displayProducts(items) {
 
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(String(p.id));
+        
+        const imageElement = p.imageUrl && p.imageUrl !== '' 
+            ? `<img src="${p.imageUrl}" alt="${p.name}">`
+            : `<i class="fa-solid ${p.icon || 'fa-basket-shopping'}"></i>`;
+
         return `
             <div class="product-card">
                 <div class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFavorite('${p.id}')">
                     <i class="fa-solid fa-heart"></i>
                 </div>
-                <div class="product-img"><i class="fa-solid ${p.icon || 'fa-basket-shopping'}"></i></div>
+                <div class="product-img">${imageElement}</div>
                 <div class="product-info">
                     <div class="product-title">${p.name}</div>
                     <div class="product-price">${Number(p.price)} ل.س</div>
@@ -95,7 +117,6 @@ function displayProducts(items) {
     }).join('');
 }
 
-// الفلترة والبحث
 window.filterProducts = function() {
     const queryStr = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
     const filtered = globalProducts.filter(p => p.name.toLowerCase().includes(queryStr));
@@ -120,7 +141,6 @@ window.resetToHome = function() {
     window.filterCat('all', firstChip);
 };
 
-// إدارة السلة
 window.addToCart = function(id) {
     const product = globalProducts.find(p => String(p.id) === String(id));
     if (!product) return;
@@ -189,7 +209,7 @@ function renderCartItems() {
     totalEl.innerText = `${total} ل.س`;
 }
 
-// إرسال الطلب مباشرة لـ Firestore
+// إرسال الطلبات إلى Firestore
 document.getElementById('checkoutForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     if (cart.length === 0) {

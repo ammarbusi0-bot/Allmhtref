@@ -1,10 +1,11 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
     getFirestore,
     collection,
     addDoc,
     onSnapshot,
+    doc,
+    deleteDoc,
     query,
     orderBy,
     serverTimestamp
@@ -22,7 +23,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-export { db };
+
+// ===== كاشف الأخطاء العام =====
+window.addEventListener('error', (e) => console.error("🚨 خطأ عام في التطبيق:", e.message));
+window.addEventListener('unhandledrejection', (e) => console.error("🚨 خطأ Promise غير معالج:", e.reason));
 
 // ===== أدوات مساعدة =====
 export function escapeHTML(str) {
@@ -35,23 +39,35 @@ export function escapeHTML(str) {
 export async function uploadImageToImgBB(fileInput) {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
     const file = fileInput.files[0];
-    
-    if (file.size > 5 * 1024 * 1024) {
-        alert('حجم الصورة كبير جداً، يرجى اختيار صورة أقل من 5 ميجابايت.');
-        return null;
+    let fileToUpload = file;
+
+    // محاولة الضغط بأمان مع إمكانية التجاوز عند الفشل
+    try {
+        const compressor = window.imageCompression || (typeof imageCompression !== 'undefined' ? imageCompression : null);
+        if (compressor) {
+            fileToUpload = await compressor(file, { maxSizeMB: 0.8, maxWidthOrHeight: 1000, useWebWorker: true, fileType: 'image/jpeg' });
+        }
+    } catch (e) {
+        console.warn("تعذر ضغط الصورة، سيتم رفعها بحجمها الأصلي:", e);
     }
 
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', fileToUpload);
+
     try {
         const response = await fetch('https://api.imgbb.com/1/upload?key=42b6820dc31a25d977adefc41f83aa70', {
             method: 'POST',
             body: formData
         });
         const data = await response.json();
-        return data.success ? data.data.url : null;
+        if (response.ok && data && data.success) {
+            return data.data.url;
+        } else {
+            alert(`⚠️ فشل رفع الصورة:\n${data?.error?.message || 'خطأ من سيرفر الصور'}`);
+            return null;
+        }
     } catch (error) {
-        console.error("خطأ في رفع الصورة إلى ImgBB:", error);
+        alert(`❌ تعذر الاتصال بسيرفر الصور:\n${error.message}`);
         return null;
     }
 }
@@ -61,29 +77,28 @@ export function toggleDarkMode() {
     document.body.classList.toggle('dark');
     const isDark = document.body.classList.contains('dark');
     localStorage.setItem('alukhowah_dark', isDark ? 'true' : 'false');
-    const icon = document.getElementById('darkModeIcon');
-    if (icon) {
+    
+    document.querySelectorAll('.dark-toggle i, #adminDarkIcon, #darkModeIcon').forEach(icon => {
         icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-    }
+    });
 }
 
 export function loadDarkModePreference() {
-    const saved = localStorage.getItem('alukhowah_dark');
-    if (saved === 'true') {
+    if (localStorage.getItem('alukhowah_dark') === 'true') {
         document.body.classList.add('dark');
-        const icon = document.getElementById('darkModeIcon');
-        if (icon) icon.className = 'fa-solid fa-sun';
+        document.querySelectorAll('.dark-toggle i, #adminDarkIcon, #darkModeIcon').forEach(icon => {
+            icon.className = 'fa-solid fa-sun';
+        });
     }
 }
 
-// ===== متغيرات عامة =====
+// ===== حالة التطبيق للعميل =====
 let globalProducts = [];
 let cart = [];
 let isSubmitting = false;
 let currentCategory = 'all';
 let currentSearch = '';
 
-// ===== جلب المنتجات =====
 export function initProductsListener() {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
@@ -97,7 +112,6 @@ export function initProductsListener() {
     });
 }
 
-// ===== عرض المنتجات =====
 export function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
@@ -128,15 +142,10 @@ export function displayProducts(items) {
     }).join('');
 }
 
-// ===== التصفية =====
 export function applyFilters() {
     let filtered = globalProducts;
-    if (currentCategory !== 'all') {
-        filtered = filtered.filter(p => p.category === currentCategory);
-    }
-    if (currentSearch.trim() !== '') {
-        filtered = filtered.filter(p => p.name.toLowerCase().includes(currentSearch.toLowerCase()));
-    }
+    if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
+    if (currentSearch.trim() !== '') filtered = filtered.filter(p => p.name.toLowerCase().includes(currentSearch.toLowerCase()));
     displayProducts(filtered);
 }
 
@@ -147,12 +156,11 @@ export function filterByCategory(cat, element) {
     applyFilters();
 }
 
-export function filterBySearch(query) {
-    currentSearch = query;
+export function filterBySearch(queryStr) {
+    currentSearch = queryStr;
     applyFilters();
 }
 
-// ===== المفضلة =====
 export function getFavorites() {
     return JSON.parse(localStorage.getItem('alukhowah_favs') || '[]');
 }
@@ -160,25 +168,17 @@ export function getFavorites() {
 export function toggleFavorite(id) {
     let favs = getFavorites();
     const strId = String(id);
-    if (favs.includes(strId)) {
-        favs = favs.filter(fId => fId !== strId);
-    } else {
-        favs.push(strId);
-    }
+    favs = favs.includes(strId) ? favs.filter(fId => fId !== strId) : [...favs, strId];
     localStorage.setItem('alukhowah_favs', JSON.stringify(favs));
     applyFilters();
 }
 
-// ===== السلة =====
 export function addToCart(id) {
     const product = globalProducts.find(p => String(p.id) === String(id));
     if (!product) return;
-    const existingIndex = cart.findIndex(item => String(item.id) === String(id));
-    if (existingIndex > -1) {
-        cart[existingIndex].qty += 1;
-    } else {
-        cart.push({ ...product, price: Number(product.price), qty: 1 });
-    }
+    const idx = cart.findIndex(item => String(item.id) === String(id));
+    if (idx > -1) cart[idx].qty += 1;
+    else cart.push({ ...product, price: Number(product.price), qty: 1 });
     updateCartBadge();
 }
 
@@ -198,9 +198,7 @@ export function toggleCartModal() {
     const modal = document.getElementById('cartModal');
     if (!modal) return;
     modal.classList.toggle('open');
-    if (modal.classList.contains('open')) {
-        renderCartItems();
-    }
+    if (modal.classList.contains('open')) renderCartItems();
 }
 
 export function renderCartItems() {
@@ -233,17 +231,14 @@ export function renderCartItems() {
     totalEl.innerText = `${total} ل.س`;
 }
 
-// ===== إرسال الطلب =====
 export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
     if (!form) return;
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         if (isSubmitting) return;
-        if (cart.length === 0) {
-            alert('السلة فارغة!');
-            return;
-        }
+        if (cart.length === 0) { alert('السلة فارغة!'); return; }
+        
         const submitBtn = document.getElementById('submitBtn');
         if (!submitBtn) return;
         isSubmitting = true;
@@ -264,14 +259,13 @@ export function initCheckoutForm() {
                 date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                 createdAt: serverTimestamp()
             });
-            alert(`تم إرسال طلبك بنجاح! وسوف نتواصل معك عبر رقم الهاتف: ${phone}`);
+            alert(`✅ تم إرسال طلبك بنجاح! وسوف نتواصل معك عبر الرقم: ${phone}`);
             cart = [];
             updateCartBadge();
             toggleCartModal();
             form.reset();
         } catch (error) {
-            console.error("Error adding order: ", error);
-            alert('حدث خطأ أثناء إرسال الطلب: ' + error.message);
+            alert('❌ حدث خطأ أثناء إرسال الطلب: ' + error.message);
         } finally {
             isSubmitting = false;
             submitBtn.innerText = 'تأكيد الطلب';
@@ -280,7 +274,7 @@ export function initCheckoutForm() {
     });
 }
 
-// ===== تهيئة الصفحة الرئيسية =====
+// ===== تهيئة التطبيق كلياً =====
 export function initMainPage() {
     loadDarkModePreference();
 
@@ -320,7 +314,7 @@ export function initMainPage() {
     initProductsListener();
     initCheckoutForm();
 
-    // ربط كافة الدوال بالنطاق العام window لضمان عمل الأحداث المُستدعاة من HTML
+    // تصدير للـ Global Window Scope
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.removeFromCart = removeFromCart;
@@ -329,3 +323,5 @@ export function initMainPage() {
     window.filterBySearch = filterBySearch;
     window.uploadImageToImgBB = uploadImageToImgBB;
 }
+
+export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp };

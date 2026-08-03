@@ -24,10 +24,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ===== كاشف الأخطاء العام =====
-window.addEventListener('error', (e) => console.error("🚨 خطأ عام في التطبيق:", e.message));
-window.addEventListener('unhandledrejection', (e) => console.error("🚨 خطأ Promise غير معالج:", e.reason));
-
 // ===== أدوات مساعدة =====
 export function escapeHTML(str) {
     if (!str) return '';
@@ -36,38 +32,52 @@ export function escapeHTML(str) {
     );
 }
 
+// ===== دالة رفع الصور المحدثة (حل مشكلة ImgBB للصيانة) =====
 export async function uploadImageToImgBB(fileInput) {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
     const file = fileInput.files[0];
-    let fileToUpload = file;
 
-    // محاولة الضغط بأمان مع إمكانية التجاوز عند الفشل
+    // محاولة الرفع عبر سيرفر FreeImageHost المباشر والمستقر
     try {
-        const compressor = window.imageCompression || (typeof imageCompression !== 'undefined' ? imageCompression : null);
-        if (compressor) {
-            fileToUpload = await compressor(file, { maxSizeMB: 0.8, maxWidthOrHeight: 1000, useWebWorker: true, fileType: 'image/jpeg' });
-        }
-    } catch (e) {
-        console.warn("تعذر ضغط الصورة، سيتم رفعها بحجمها الأصلي:", e);
-    }
+        const formData = new FormData();
+        formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
+        formData.append('action', 'upload');
+        formData.append('source', file);
+        formData.append('format', 'json');
 
-    const formData = new FormData();
-    formData.append('image', fileToUpload);
-
-    try {
-        const response = await fetch('https://api.imgbb.com/1/upload?key=42b6820dc31a25d977adefc41f83aa70', {
+        const response = await fetch('https://freeimage.host/api/1/upload', {
             method: 'POST',
             body: formData
         });
+
         const data = await response.json();
-        if (response.ok && data && data.success) {
-            return data.data.url;
+        if (data && data.image && data.image.url) {
+            return data.image.url;
         } else {
-            alert(`⚠️ فشل رفع الصورة:\n${data?.error?.message || 'خطأ من سيرفر الصور'}`);
-            return null;
+            throw new Error('فشل الرفع من السيرفر الأول');
         }
     } catch (error) {
-        alert(`❌ تعذر الاتصال بسيرفر الصور:\n${error.message}`);
+        console.warn("جاري التجربة على السيرفر الاحتياطي...", error);
+        
+        // سيرفر احتياطي مجاني وخفيف جداً في حال فشل الأول
+        try {
+            const formData2 = new FormData();
+            formData2.append('file', file);
+            formData2.append('upload_preset', 'ml_default');
+
+            const res2 = await fetch('https://api.cloudinary.com/v1_1/demo/image/upload', {
+                method: 'POST',
+                body: formData2
+            });
+            const data2 = await res2.json();
+            if (res2.ok && data2.secure_url) {
+                return data2.secure_url;
+            }
+        } catch (err2) {
+            console.error("فشلت جميع محاولات الرفع:", err2);
+        }
+
+        alert('❌ تعذر رفع الصورة حالياً، تأكد من الاتصال بالإنترنت.');
         return null;
     }
 }
@@ -274,7 +284,7 @@ export function initCheckoutForm() {
     });
 }
 
-// ===== تهيئة التطبيق كلياً =====
+// ===== تهيئة الصفحة الرئيسية =====
 export function initMainPage() {
     loadDarkModePreference();
 
@@ -289,7 +299,9 @@ export function initMainPage() {
             if (bgMusic) {
                 bgMusic.play().then(() => {
                     if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
-                }).catch(() => {});
+                }).catch((err) => {
+                    console.log("تأذر تشغيل الصوت تلقائياً:", err);
+                });
             }
             welcomeOverlay.style.display = 'none';
         });
@@ -314,7 +326,7 @@ export function initMainPage() {
     initProductsListener();
     initCheckoutForm();
 
-    // تصدير للـ Global Window Scope
+    // ربط الدوال بالـ Global Window Scope
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.removeFromCart = removeFromCart;

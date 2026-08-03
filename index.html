@@ -199,6 +199,28 @@
             cursor: pointer;
         }
 
+        /* زر الماسينجر العائم */
+        .messenger-btn {
+            position: fixed;
+            bottom: 75px;
+            left: 15px;
+            background-color: #0084ff;
+            color: white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 999;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+
+        .messenger-btn:hover { transform: scale(1.1); }
+
         .bottom-nav {
             position: fixed;
             bottom: 0; left: 0; right: 0;
@@ -286,7 +308,9 @@
 </head>
 <body>
 
-    <audio id="bgMusic" loop src="7689104513_tk (1).mp3"></audio>
+    <audio id="bgMusic" loop preload="auto">
+        <source src="7689104513_tk (1).mp3" type="audio/mpeg">
+    </audio>
 
     <div id="welcomeOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f27a1a; color: white; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
         <i class="fa-solid fa-basket-shopping" style="font-size: 60px; margin-bottom: 20px;"></i>
@@ -296,6 +320,11 @@
             دخول المتجر 🛒
         </button>
     </div>
+
+    <!-- زر الماسينجر (استبدل username بحسابك) -->
+    <a href="https://m.me/your_facebook_page" target="_blank" class="messenger-btn" title="تواصل معنا عبر ماسينجر">
+        <i class="fa-brands fa-facebook-messenger"></i>
+    </a>
 
     <header>
         <div class="header-top">

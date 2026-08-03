@@ -282,7 +282,7 @@
             e.preventDefault();
 
             const saveBtn = document.getElementById('saveProductBtn');
-            saveBtn.innerText = 'جاري معالجة الصورة...';
+            saveBtn.innerText = 'جاري حفظ المنتج والصورة...';
             saveBtn.disabled = true;
 
             const name = document.getElementById('pName').value.trim();
@@ -293,18 +293,7 @@
 
             try {
                 if (fileInput.files.length > 0) {
-                    let fileToUpload = fileInput.files[0];
-                    if (typeof imageCompression !== 'undefined') {
-                        try {
-                            const options = { maxSizeMB: 0.2, maxWidthOrHeight: 800, useWebWorker: true };
-                            fileToUpload = await imageCompression(fileInput.files[0], options);
-                        } catch (compressErr) {
-                            console.warn('تخطي الضغط:', compressErr);
-                        }
-                    }
-                    
-                    const uploadedUrl = await uploadImageToImgBB(fileToUpload);
-                    imageUrl = uploadedUrl && uploadedUrl !== 'null' ? uploadedUrl : '';
+                    imageUrl = await uploadImageToImgBB(fileInput.files[0]);
                 }
 
                 await addDoc(collection(db, "products"), {

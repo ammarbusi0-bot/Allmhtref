@@ -198,6 +198,8 @@
             transition: opacity 0.3s;
         }
         .btn-add-cart:hover { opacity: 0.9; }
+        .share-buttons button:hover { transform: scale(1.2); }
+        .share-buttons button { transition: transform 0.2s; }
 
         /* --- المودالات --- */
         #cartModal, #infoModal {
@@ -333,6 +335,57 @@
         .facebook-link { background: #3b5998; }
         .map-link { background: #4285F4; }
         .review-link { background: #ff9800; }
+
+        /* تنسيق كود الدعوة */
+        .referral-box {
+            background: var(--card-bg);
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin: 10px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            transition: background 0.3s, border 0.3s;
+        }
+        .referral-box .code-label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .referral-box .code-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 2px;
+            background: var(--input-bg);
+            padding: 4px 12px;
+            border-radius: 6px;
+        }
+        .referral-box .copy-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.3s;
+        }
+        .referral-box .copy-btn:hover { opacity: 0.8; }
+        .referral-box .share-icons {
+            display: flex;
+            gap: 8px;
+        }
+        .referral-box .share-icons button {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .referral-box .share-icons button:hover { transform: scale(1.2); }
     </style>
 </head>
 <body>
@@ -373,6 +426,9 @@
     <div class="search-section">
         <input type="text" id="searchInput" placeholder="🔍 ابحث عن منتج..." oninput="window.filterBySearch(this.value)">
     </div>
+
+    <!-- ===== كود الدعوة (المضافة) ===== -->
+    <div id="referralContainer" class="referral-box"></div>
 
     <!-- الأقسام -->
     <div class="categories" id="categoriesContainer">

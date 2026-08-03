@@ -32,7 +32,7 @@ export function escapeHTML(str) {
     );
 }
 
-// ===== دالة رفع الصور (ImgBB ثم Base64 مضغوط جداً) =====
+// ===== دالة رفع الصور =====
 export async function uploadImageToImgBB(fileOrInput) {
     let file = null;
     if (fileOrInput instanceof File) {
@@ -40,11 +40,10 @@ export async function uploadImageToImgBB(fileOrInput) {
     } else if (fileOrInput && fileOrInput.files && fileOrInput.files[0]) {
         file = fileOrInput.files[0];
     } else {
-        console.error("uploadImageToImgBB: لم يتم توفير ملف صالح");
-        return ''; // سلسلة فارغة بدلاً من null
+        return '';
     }
 
-    // 1. محاولة ImgBB
+    // 1. محاولة الرفع عبر ImgBB
     try {
         const formDataImg = new FormData();
         formDataImg.append('image', file);
@@ -60,17 +59,16 @@ export async function uploadImageToImgBB(fileOrInput) {
             }
         }
     } catch (e) {
-        console.warn("فشل ImgBB، سيتم استخدام Base64 مضغوط...", e);
+        console.warn("فشل ImgBB، يتم استخدام Base64...", e);
     }
 
-    // 2. الحل الاحتياطي: Base64 مع ضغط قوي جداً
+    // 2. الحل الاحتياطي: Base64 مضغوط
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
             const img = new Image();
             img.onload = () => {
-                // تصغير الأبعاد إلى 200px عرض وجودة 60% لضمان حجم أقل من 1MB
-                const maxWidth = 200;
+                const maxWidth = 300;
                 let width = img.width;
                 let height = img.height;
                 if (width > maxWidth) {
@@ -82,19 +80,12 @@ export async function uploadImageToImgBB(fileOrInput) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const base64 = canvas.toDataURL('image/jpeg', 0.6);
-                resolve(base64);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
             };
-            img.onerror = () => {
-                alert('❌ فشل معالجة الصورة. تأكد من أن الملف صورة صالحة.');
-                resolve(''); // سلسلة فارغة عند الفشل
-            };
+            img.onerror = () => resolve('');
             img.src = reader.result;
         };
-        reader.onerror = () => {
-            alert('❌ فشل قراءة ملف الصورة من جهازك.');
-            resolve('');
-        };
+        reader.onerror = () => resolve('');
         reader.readAsDataURL(file);
     });
 }
@@ -149,11 +140,15 @@ export function displayProducts(items) {
     const favs = getFavorites();
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(String(p.id));
-        const imageUrl = p.imageUrl || ''; // ضمان عدم وجود null
-        const imageElement = (imageUrl && String(imageUrl).trim() !== '') ?
-            `<img src="${escapeHTML(imageUrl)}" alt="${escapeHTML(p.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` +
-            `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:50px; color:#aaa;"></i>` :
-            `<i class="fa-solid fa-basket-shopping" style="font-size:50px; color:#aaa;"></i>`;
+        const imgUrlStr = String(p.imageUrl || '').trim();
+        const isValidUrl = imgUrlStr !== '' && imgUrlStr !== 'null' && imgUrlStr !== 'undefined';
+        
+        // يعرض الصورة إذا كانت موجودة، وإلا يعرض أيقونة السلة بشكل أنيق
+        const imageElement = isValidUrl ?
+            `<img src="${escapeHTML(imgUrlStr)}" alt="${escapeHTML(p.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <div class="no-img-fallback" style="display:none;"><i class="fa-solid fa-basket-shopping"></i></div>` :
+            `<div class="no-img-fallback"><i class="fa-solid fa-basket-shopping"></i></div>`;
+
         return `
             <div class="product-card">
                 <div class="fav-btn ${isFav ? 'active' : ''}" onclick="window.toggleFavorite('${p.id}')">
@@ -214,6 +209,18 @@ export function addToCart(id) {
     updateCartBadge();
 }
 
+export function changeQty(id, delta) {
+    const idx = cart.findIndex(item => String(item.id) === String(id));
+    if (idx > -1) {
+        cart[idx].qty += delta;
+        if (cart[idx].qty <= 0) {
+            cart.splice(idx, 1);
+        }
+    }
+    updateCartBadge();
+    renderCartItems();
+}
+
 export function removeFromCart(id) {
     cart = cart.filter(item => String(item.id) !== String(id));
     updateCartBadge();
@@ -251,11 +258,14 @@ export function renderCartItems() {
             <div class="cart-item">
                 <div>
                     <strong>${escapeHTML(item.name)}</strong>
-                    <div style="font-size:12px; color:#666;">العدد: ${item.qty} × ${itemPrice} ل.س</div>
+                    <div style="font-size:12px; color:#666;">السعر: ${itemPrice} ل.س</div>
                 </div>
-                <div>
-                    <span style="margin-left: 10px; font-weight:bold;">${itemTotal} ل.س</span>
-                    <i class="fa-solid fa-trash" style="color:red; cursor:pointer;" onclick="window.removeFromCart('${item.id}')"></i>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button class="qty-btn" onclick="window.changeQty('${item.id}', -1)">-</button>
+                    <span style="font-weight:bold;">${item.qty}</span>
+                    <button class="qty-btn" onclick="window.changeQty('${item.id}', 1)">+</button>
+                    <span style="margin-right: 8px; font-weight:bold; color:var(--primary);">${itemTotal} ل.س</span>
+                    <i class="fa-solid fa-trash" style="color:red; cursor:pointer; margin-right:5px;" onclick="window.removeFromCart('${item.id}')"></i>
                 </div>
             </div>
         `;
@@ -279,7 +289,7 @@ export function initCheckoutForm() {
 
         const phone = document.getElementById('userPhone')?.value.trim() || '';
         const address = document.getElementById('userAddress')?.value.trim() || '';
-        const itemsSummary = cart.map(i => `${escapeHTML(i.name)} (العدد: ${i.qty})`).join(' - ');
+        const itemsSummary = cart.map(i => `${i.name} (${i.qty})`).join(' - ');
         const totalSum = cart.reduce((sum, i) => sum + ((Number(i.price) || 0) * i.qty), 0);
 
         try {
@@ -294,6 +304,7 @@ export function initCheckoutForm() {
             alert(`✅ تم إرسال طلبك بنجاح! وسوف نتواصل معك عبر الرقم: ${phone}`);
             cart = [];
             updateCartBadge();
+            renderCartItems();
             toggleCartModal();
             form.reset();
         } catch (error) {
@@ -321,9 +332,7 @@ export function initMainPage() {
             if (bgMusic) {
                 bgMusic.play().then(() => {
                     if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
-                }).catch((err) => {
-                    console.log("تعذر تشغيل الصوت تلقائياً:", err);
-                });
+                }).catch((err) => console.log("تعذر تشغيل الصوت تلقائياً:", err));
             }
             welcomeOverlay.style.display = 'none';
         });
@@ -348,9 +357,10 @@ export function initMainPage() {
     initProductsListener();
     initCheckoutForm();
 
-    // ربط الدوال بالـ Global Window Scope
+    // ربط الدوال بالنافذة العامة
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
+    window.changeQty = changeQty;
     window.removeFromCart = removeFromCart;
     window.toggleCartModal = toggleCartModal;
     window.filterByCategory = filterByCategory;

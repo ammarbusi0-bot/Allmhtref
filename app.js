@@ -113,19 +113,119 @@ let currentSearch = '';
 let currentDeliveryType = 'inside';
 let currentDeliveryKm = 1;
 
-export function initProductsListener() {
-    const grid = document.getElementById('productsGrid');
-    if (!grid) return;
-    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-    onSnapshot(q, (snapshot) => {
-        globalProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        applyFilters();
-    }, (error) => {
-        console.error("خطأ جلب المنتجات:", error);
-        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:red;">تعذر تحميل المنتجات.</p>';
+// ===== نظام الدعوة والخصم =====
+export function getMyReferralCode() {
+    let code = localStorage.getItem('myReferralCode');
+    if (!code) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        code = Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+        localStorage.setItem('myReferralCode', code);
+    }
+    return code;
+}
+
+export function getInviteLink() {
+    return `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
+}
+
+export function shareProduct(platform, productName, productPrice) {
+    const code = getMyReferralCode();
+    const message = `🛍️ ${productName}\n💰 ${productPrice}\n🎁 كود خصم 2%: ${code}\n📱 ${window.location.href}`;
+    const encoded = encodeURIComponent(message);
+    
+    const links = {
+        whatsapp: `https://wa.me/?text=${encoded}`,
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encoded}`,
+        instagram: `https://www.instagram.com/`
+    };
+    
+    if (platform === 'instagram') {
+        navigator.clipboard.writeText(message).then(() => alert('✅ تم نسخ الرابط، الصقه في انستا'));
+    } else {
+        window.open(links[platform], '_blank');
+    }
+}
+
+export function handleReferral() {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    const myCode = getMyReferralCode();
+    
+    if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
+        localStorage.setItem('invitedBy', ref);
+        localStorage.setItem('referralUsed', 'true');
+        
+        let points = JSON.parse(localStorage.getItem('referralPoints') || '{}');
+        points[ref] = (points[ref] || 0) + 1;
+        localStorage.setItem('referralPoints', JSON.stringify(points));
+        
+        setTimeout(() => {
+            alert('🎉 مرحباً! تم تفعيل كود الخصم 2% على طلبك الأول فوق 100 ليرة');
+        }, 500);
+    }
+}
+
+export function getReferralDiscount(total) {
+    if (total < 100) return 0;
+    if (!localStorage.getItem('invitedBy')) return 0;
+    if (localStorage.getItem('discountApplied')) return 0;
+    return total * 0.02;
+}
+
+export function applyReferralDiscount(total) {
+    const discount = getReferralDiscount(total);
+    if (discount > 0) {
+        localStorage.setItem('discountApplied', 'true');
+    }
+    return discount;
+}
+
+export function showReferralCode() {
+    const code = getMyReferralCode();
+    const container = document.getElementById('referralContainer');
+    if (container) {
+        container.innerHTML = `
+            <div style="background:#f0f0f0;padding:10px;border-radius:8px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                <div>
+                    <span style="font-weight:bold;">🎁 كود الخصم: </span>
+                    <strong style="font-size:18px;color:#ff6b6b;">${code}</strong>
+                </div>
+                <button onclick="window.copyReferralCode()" style="background:#4CAF50;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">
+                    <i class="fa-regular fa-copy"></i> نسخ
+                </button>
+            </div>
+        `;
+    }
+}
+
+export function copyReferralCode() {
+    const code = getMyReferralCode();
+    navigator.clipboard.writeText(code).then(() => {
+        alert('✅ تم نسخ الكود: ' + code);
     });
 }
 
+export function initReferralSystem() {
+    handleReferral();
+    showReferralCode();
+}
+
+// ===== أزرار المشاركة =====
+const shareButtonsHTML = `
+<div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;">
+    <button onclick="window.shareProduct('whatsapp', this.closest('.product-card')?.querySelector('.product-title')?.textContent || 'منتج', this.closest('.product-card')?.querySelector('.product-price')?.textContent || '')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+        <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
+    </button>
+    <button onclick="window.shareProduct('facebook', this.closest('.product-card')?.querySelector('.product-title')?.textContent || 'منتج', this.closest('.product-card')?.querySelector('.product-price')?.textContent || '')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+        <i class="fa-brands fa-facebook" style="color:#1877F2;"></i>
+    </button>
+    <button onclick="window.shareProduct('instagram', this.closest('.product-card')?.querySelector('.product-title')?.textContent || 'منتج', this.closest('.product-card')?.querySelector('.product-price')?.textContent || '')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+        <i class="fa-brands fa-instagram" style="color:#E4405F;"></i>
+    </button>
+</div>
+`;
+
+// ===== دالة عرض المنتجات (معدلة) =====
 export function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
@@ -144,7 +244,6 @@ export function displayProducts(items) {
              <div class="no-img-fallback" style="display:none;"><i class="fa-solid fa-basket-shopping"></i></div>` :
             `<div class="no-img-fallback"><i class="fa-solid fa-basket-shopping"></i></div>`;
 
-        // حساب الخصم
         const discount = p.discount ? Number(p.discount) : 0;
         const originalPrice = Number(p.price) || 0;
         const finalPrice = discount > 0 ? originalPrice - (originalPrice * discount / 100) : originalPrice;
@@ -163,6 +262,7 @@ export function displayProducts(items) {
                         ${Math.round(finalPrice)} Lt
                     </div>
                 </div>
+                ${shareButtonsHTML}
                 <button class="btn-add-cart" onclick="window.addToCart('${p.id}')">+ أضف للسلة</button>
             </div>
         `;
@@ -237,7 +337,7 @@ export function updateCartBadge() {
     if (badge) badge.innerText = totalCount;
 }
 
-// ===== حساب الإجمالي مع الخصم الذكي والتوصيل =====
+// ===== حساب الإجمالي مع الخصم الذكي والتوصيل والخصم الترويجي =====
 function calculateFinalTotal() {
     const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     
@@ -247,7 +347,11 @@ function calculateFinalTotal() {
     else if (itemsTotal >= 500) smartDiscountPercent = 5;
     
     const smartDiscountAmount = itemsTotal * (smartDiscountPercent / 100);
-    const discountedItemsTotal = itemsTotal - smartDiscountAmount;
+    let discountedItemsTotal = itemsTotal - smartDiscountAmount;
+    
+    // خصم الدعوة (يضاف للخصم الذكي)
+    const referralDiscount = getReferralDiscount(discountedItemsTotal);
+    discountedItemsTotal -= referralDiscount;
     
     // تكلفة التوصيل
     let deliveryCost = 0;
@@ -263,6 +367,7 @@ function calculateFinalTotal() {
         itemsTotal,
         smartDiscountPercent,
         smartDiscountAmount,
+        referralDiscount,
         discountedItemsTotal,
         deliveryCost,
         finalTotal
@@ -328,7 +433,6 @@ export function renderCartItems() {
         `;
     }).join('');
     
-    // عرض ملخص الإجمالي
     if (summaryDiv) {
         summaryDiv.style.display = 'block';
         const calc = calculateFinalTotal();
@@ -336,6 +440,7 @@ export function renderCartItems() {
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
             ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة (2%):</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
             <div class="summary-line"><span>🚚 التوصيل (${currentDeliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + currentDeliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} Lt</span></div>
         `;
@@ -373,6 +478,7 @@ export function initCheckoutForm() {
                 total: Math.round(calc.finalTotal),
                 itemsTotal: calc.itemsTotal,
                 smartDiscount: Math.round(calc.smartDiscountAmount),
+                referralDiscount: Math.round(calc.referralDiscount),
                 deliveryCost: calc.deliveryCost,
                 deliveryType: currentDeliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${currentDeliveryKm} كم)`,
                 date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
@@ -440,6 +546,7 @@ export function initMainPage() {
 
     initProductsListener();
     initCheckoutForm();
+    initReferralSystem();
 
     // ربط الدوال بالنافذة العامة
     window.toggleFavorite = toggleFavorite;
@@ -452,6 +559,9 @@ export function initMainPage() {
     window.uploadImageToImgBB = uploadImageToImgBB;
     window.updateDelivery = updateDelivery;
     window.toggleInfoModal = toggleInfoModal;
+    window.shareProduct = shareProduct;
+    window.copyReferralCode = copyReferralCode;
+    window.getMyReferralCode = getMyReferralCode;
 }
 
 export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp };

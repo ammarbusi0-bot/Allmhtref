@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة التحكم - ماركت الأخوة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- مكتبة ضغط الصور -->
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
     <style>
         :root {
@@ -27,12 +26,7 @@
             --shadow: rgba(0,0,0,0.3);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            padding: 20px 10px 80px 10px;
-            transition: background 0.3s, color 0.3s;
-        }
+        body { background-color: var(--bg); color: var(--text); padding: 20px 10px 80px 10px; }
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -50,8 +44,6 @@
             width: 100%;
             max-width: 400px;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: background 0.3s;
         }
         .login-box h2 { margin-bottom: 15px; color: var(--primary); }
         .login-box input {
@@ -62,13 +54,8 @@
             border-radius: 6px;
             background: var(--input-bg);
             color: var(--text);
-            transition: background 0.3s, border 0.3s, color 0.3s;
         }
-        .admin-container {
-            max-width: 800px;
-            margin: 0 auto;
-            display: none;
-        }
+        .admin-container { max-width: 800px; margin: 0 auto; display: none; }
         h1, h2 { margin-bottom: 15px; color: var(--primary); }
         .card {
             background: var(--card-bg);
@@ -76,8 +63,6 @@
             padding: 20px;
             margin-bottom: 25px;
             border: 1px solid var(--border);
-            box-shadow: 0 2px 5px var(--shadow);
-            transition: background 0.3s, border 0.3s, box-shadow 0.3s;
         }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
@@ -88,8 +73,6 @@
             border-radius: 6px;
             background: var(--input-bg);
             color: var(--text);
-            font-size: 14px;
-            transition: background 0.3s, border 0.3s, color 0.3s;
         }
         .btn {
             background: var(--primary);
@@ -101,28 +84,11 @@
             border-radius: 6px;
             cursor: pointer;
             width: 100%;
-            transition: background 0.3s;
         }
-        .btn-danger {
-            background: var(--danger);
-            padding: 5px 10px;
-            font-size: 12px;
-            width: auto;
-        }
+        .btn-danger { background: var(--danger); padding: 5px 10px; font-size: 12px; width: auto; }
         .table-responsive { overflow-x: auto; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            background: var(--card-bg);
-        }
-        th, td {
-            padding: 10px;
-            text-align: right;
-            border-bottom: 1px solid var(--border);
-            font-size: 14px;
-            transition: border 0.3s;
-        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border); font-size: 14px; }
         th { background: var(--input-bg); }
         .order-card {
             border-right: 4px solid var(--primary);
@@ -130,32 +96,18 @@
             margin-bottom: 15px;
             background: var(--card-bg);
             border-radius: 4px;
-            box-shadow: 0 1px 3px var(--shadow);
-            transition: background 0.3s, box-shadow 0.3s;
         }
-        .product-img-preview {
-            width: 40px;
-            height: 40px;
-            object-fit: cover;
-            border-radius: 4px;
-        }
+        .product-img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
         .dark-toggle {
             position: fixed;
-            top: 15px;
-            left: 15px;
+            top: 15px; left: 15px;
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            cursor: pointer;
-            z-index: 999;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; cursor: pointer; z-index: 999;
             color: var(--text);
-            transition: background 0.3s, border 0.3s, color 0.3s;
         }
     </style>
 </head>
@@ -182,7 +134,7 @@
             <form id="addProductForm">
                 <div class="form-group">
                     <label>اسم المنتج:</label>
-                    <input type="text" id="pName" required placeholder="مثال: زيت زيتون 1 لتر">
+                    <input type="text" id="pName" required placeholder="مثال: متة 250غ">
                 </div>
                 <div class="form-group">
                     <label>السعر (ل.س):</label>
@@ -287,11 +239,10 @@
                 }
                 adminTable.innerHTML = snapshot.docs.map(docSnap => {
                     const p = docSnap.data() || {};
-                    const imgUrlStr = String(p.imageUrl || '');
-                    // معالجة حالة 'null' نصاً
-                    const cleanUrl = (imgUrlStr === 'null' || imgUrlStr.trim() === '') ? '' : imgUrlStr;
-                    const imgTag = cleanUrl ?
-                        `<img src="${escapeHTML(cleanUrl)}" class="product-img-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">` +
+                    const imgUrlStr = String(p.imageUrl || '').trim();
+                    const isValidUrl = imgUrlStr !== '' && imgUrlStr !== 'null' && imgUrlStr !== 'undefined';
+                    const imgTag = isValidUrl ?
+                        `<img src="${escapeHTML(imgUrlStr)}" class="product-img-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">` +
                         `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:20px; color:#aaa;"></i>` :
                         `<i class="fa-solid fa-basket-shopping" style="font-size:20px; color:#aaa;"></i>`;
                     return `
@@ -343,7 +294,6 @@
             try {
                 if (fileInput.files.length > 0) {
                     let fileToUpload = fileInput.files[0];
-                    // استخدام مكتبة الضغط إذا وجدت
                     if (typeof imageCompression !== 'undefined') {
                         try {
                             const options = { maxSizeMB: 0.2, maxWidthOrHeight: 800, useWebWorker: true };
@@ -354,7 +304,6 @@
                     }
                     
                     const uploadedUrl = await uploadImageToImgBB(fileToUpload);
-                    // تأكد من أن uploadedUrl ليس null أو 'null'
                     imageUrl = uploadedUrl && uploadedUrl !== 'null' ? uploadedUrl : '';
                 }
 
@@ -362,11 +311,11 @@
                     name: String(name),
                     price: Number(price),
                     category: String(category),
-                    imageUrl: imageUrl, // إما رابط صحيح أو سلسلة فارغة
+                    imageUrl: String(imageUrl),
                     createdAt: serverTimestamp()
                 });
 
-                alert('✅ تمت إضافة المنتج بنجاح مع الصورة!');
+                alert('✅ تمت إضافة المنتج بنجاح!');
                 this.reset();
             } catch (error) {
                 alert('❌ حدث خطأ أثناء إضافة المنتج: ' + error.message);

@@ -83,7 +83,7 @@
             align-items: center;
             justify-content: center;
         }
-        .dark-toggle, .music-toggle { cursor: pointer; font-size: 20px; }
+        .dark-toggle, .music-toggle, .info-toggle { cursor: pointer; font-size: 20px; }
         .search-section { padding: 15px; }
         .search-section input {
             width: 100%;
@@ -244,6 +244,61 @@
             width: 100%;
         }
         .btn-close { background: #888; margin-top: 10px; }
+        
+        /* ===== مودال التواصل ===== */
+        #infoModal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1001;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        #infoModal.open { display: flex; }
+        .info-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
+            text-align: right;
+        }
+        .info-content h2 { color: var(--primary); margin-bottom: 20px; text-align: center; }
+        .info-branch {
+            background: var(--input-bg);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .info-branch h3 { font-size: 16px; margin-bottom: 5px; color: var(--primary); }
+        .info-branch p { font-size: 14px; margin-bottom: 5px; }
+        .info-branch a { color: var(--primary); text-decoration: none; font-size: 14px; display: block; margin-top: 5px; }
+        .info-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+        .info-link {
+            background: var(--primary);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .whatsapp-link { background: #25D366; }
+        .telegram-link { background: #0088cc; }
+        .facebook-link { background: #3b5998; }
+        .map-link { background: #4285F4; }
     </style>
 </head>
 <body>
@@ -267,6 +322,10 @@
             <span class="dark-toggle" title="تبديل المظهر">
                 <i class="fa-solid fa-moon" id="darkModeIcon"></i>
             </span>
+            <!-- أيقونة التواصل -->
+            <span class="info-toggle" title="معلومات المتجر" onclick="window.toggleInfoModal()">
+                <i class="fa-solid fa-circle-info"></i>
+            </span>
             <span style="position:relative; cursor:pointer;" onclick="window.toggleCartModal()" title="السلة">
                 <i class="fa-solid fa-cart-shopping"></i>
                 <span id="cartCount">0</span>
@@ -284,12 +343,18 @@
         <span class="cat-chip" onclick="window.filterByCategory('ألبان', this)">ألبان وأجبان</span>
         <span class="cat-chip" onclick="window.filterByCategory('زيوت', this)">زيوت وسمن</span>
         <span class="cat-chip" onclick="window.filterByCategory('مشروبات', this)">مشروبات</span>
+        <!-- الأقسام الجديدة -->
+        <span class="cat-chip" onclick="window.filterByCategory('بهارات', this)">بهارات</span>
+        <span class="cat-chip" onclick="window.filterByCategory('شبسات', this)">شبسات</span>
+        <span class="cat-chip" onclick="window.filterByCategory('حلويات', this)">حلويات</span>
+        <span class="cat-chip" onclick="window.filterByCategory('منظفات', this)">منظفات</span>
     </div>
 
     <div class="products-grid" id="productsGrid">
         <p style="grid-column: 1/-1; text-align:center; padding: 20px;">جاري تحميل المنتجات...</p>
     </div>
 
+    <!-- سلة المشتريات -->
     <div id="cartModal">
         <div class="cart-content">
             <h2>🛒 سلة المشتريات</h2>
@@ -301,6 +366,61 @@
                 <button type="submit" class="btn" id="submitBtn">تأكيد الطلب</button>
             </form>
             <button class="btn btn-close" onclick="window.toggleCartModal()">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- مودال معلومات المتجر (واجهة التواصل) -->
+    <div id="infoModal">
+        <div class="info-content">
+            <h2>📞 تواصل معنا - ماركت الأخوة</h2>
+
+            <div class="info-branch">
+                <h3>🏠 الفرع الرئيسي - عمرانيا</h3>
+                <p>قريب مترو تشارشي</p>
+                <p>📞 0539 810 30 96</p>
+                <a href="https://goo.gl/maps/BPVkex5NK9J18afK6" target="_blank" class="map-link" style="display:inline-block; padding:5px 10px; border-radius:15px; color:white; margin-top:5px;">
+                    <i class="fa-solid fa-location-dot"></i> عرض على الخريطة
+                </a>
+            </div>
+
+            <div class="info-branch">
+                <h3>🏠 الفرع ٢ - اسكودار</h3>
+                <p>فرح محلسي</p>
+                <a href="https://maps.google.com/?q=41.029556,29.074894" target="_blank" class="map-link" style="display:inline-block; padding:5px 10px; border-radius:15px; color:white;">
+                    <i class="fa-solid fa-location-dot"></i> عرض على الخريطة
+                </a>
+            </div>
+
+            <div class="info-branch">
+                <h3>🏠 الفرع ٣ - عمرانيا / نامك كمال</h3>
+                <p>نزلة شارع السوق المستعمل</p>
+                <a href="https://maps.google.com/?q=41.017612,29.093678" target="_blank" class="map-link" style="display:inline-block; padding:5px 10px; border-radius:15px; color:white;">
+                    <i class="fa-solid fa-location-dot"></i> عرض على الخريطة
+                </a>
+            </div>
+
+            <div class="info-links">
+                <a href="https://chat.whatsapp.com/BgPRMColfnlEjhzfepSi9w" target="_blank" class="info-link whatsapp-link">
+                    <i class="fa-brands fa-whatsapp"></i> واتساب ١
+                </a>
+                <a href="https://chat.whatsapp.com/BZVwWPoSQj8JlljW1HkRRx" target="_blank" class="info-link whatsapp-link">
+                    <i class="fa-brands fa-whatsapp"></i> واتساب ٢
+                </a>
+                <a href="https://t.me/joinchat/VkM38sbdIjPZSdMC" target="_blank" class="info-link telegram-link">
+                    <i class="fa-brands fa-telegram"></i> تيليغرام
+                </a>
+                <a href="https://www.facebook.com/abdulhaliiiim/" target="_blank" class="info-link facebook-link">
+                    <i class="fa-brands fa-facebook"></i> فيسبوك
+                </a>
+            </div>
+
+            <p style="text-align:center; font-size:14px; margin-top:15px;">
+                <a href="https://goo.gl/maps/tg5JRKDsH5tNJWEm7" target="_blank" style="color:var(--primary);">
+                    📍 موقع تقييم الملاحظات والآراء
+                </a>
+            </p>
+
+            <button class="btn btn-close" onclick="window.toggleInfoModal()" style="margin-top:15px;">إغلاق</button>
         </div>
     </div>
 

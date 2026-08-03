@@ -286,9 +286,23 @@
 </head>
 <body>
 
+    <audio id="bgMusic" loop src="7689104513_tk (1).mp3"></audio>
+
+    <div id="welcomeOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f27a1a; color: white; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
+        <i class="fa-solid fa-basket-shopping" style="font-size: 60px; margin-bottom: 20px;"></i>
+        <h1 style="margin-bottom: 10px;">أهلاً بك في ماركت الأخوة</h1>
+        <p style="margin-bottom: 25px; font-size: 16px;">تسوق أفضل المقادير والمنتجات الغذائية</p>
+        <button id="enterBtn" style="background: white; color: #f27a1a; border: none; padding: 12px 30px; font-size: 18px; font-weight: bold; border-radius: 25px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+            دخول المتجر 🛒
+        </button>
+    </div>
+
     <header>
         <div class="header-top">
             <div class="logo"><i class="fa-solid fa-basket-shopping"></i> ماركت الأخوة</div>
+            <button id="toggleMusicBtn" style="background: transparent; border: none; color: var(--primary); font-size: 20px; cursor: pointer; padding: 5px;">
+                <i class="fa-solid fa-volume-high" id="musicIcon"></i>
+            </button>
         </div>
         <div class="search-box">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -306,7 +320,7 @@
 
     <div class="container">
         <div class="products-grid" id="productsGrid">
-            <p style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المنتجات من Firestore...</p>
+            <p style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المنتجات...</p>
         </div>
     </div>
 

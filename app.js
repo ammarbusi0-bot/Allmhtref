@@ -32,7 +32,7 @@ export function escapeHTML(str) {
     );
 }
 
-// ===== دالة رفع الصور محسّنة =====
+// ===== دالة رفع الصور (ImgBB ثم Base64 احتياطي) =====
 export async function uploadImageToImgBB(fileOrInput) {
     let file = null;
     if (fileOrInput instanceof File) {
@@ -44,41 +44,28 @@ export async function uploadImageToImgBB(fileOrInput) {
         return null;
     }
 
-    // 1. Cloudinary
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'ml_default');
-        const res = await fetch('https://api.cloudinary.com/v1_1/demo/image/upload', {
-            method: 'POST',
-            body: formData
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.secure_url) return data.secure_url;
-        }
-    } catch (e) {
-        console.warn("Cloudinary فشل، تجربة ImgBB...", e);
-    }
-
-    // 2. ImgBB
+    // 1. محاولة الرفع إلى ImgBB باستخدام المفتاح
     try {
         const formDataImg = new FormData();
         formDataImg.append('image', file);
-        const myKey = "42b6820dc31a25d977adefc41f83aa70";
+        const myKey = "42b6820dc31a25d977adefc41f83aa70"; // مفتاحك الخاص
+
         const resImg = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
             method: 'POST',
             body: formDataImg
         });
+
         if (resImg.ok) {
             const dataImg = await resImg.json();
-            if (dataImg && dataImg.data && dataImg.data.url) return dataImg.data.url;
+            if (dataImg && dataImg.data && dataImg.data.url) {
+                return dataImg.data.url; // نجح الرفع إلى ImgBB
+            }
         }
     } catch (e) {
-        console.warn("ImgBB فشل، سيتم استخدام Base64 مضغوط...", e);
+        console.warn("فشل الرفع إلى ImgBB، سيتم استخدام Base64:", e);
     }
 
-    // 3. Base64 كحل احتياطي أخبي
+    // 2. الحل الاحتياطي: تحويل الصورة إلى Base64 مع تصغير الأبعاد
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -96,17 +83,17 @@ export async function uploadImageToImgBB(fileOrInput) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const resizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-                resolve(resizedBase64);
+                const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(base64);
             };
             img.onerror = () => {
-                alert('❌ فشل قراءة ملف الصورة من جهازك');
+                alert('❌ فشل معالجة الصورة. تأكد من أن الملف صورة صالحة.');
                 resolve(null);
             };
             img.src = reader.result;
         };
         reader.onerror = () => {
-            alert('❌ فشل قراءة ملف الصورة من جهازك');
+            alert('❌ فشل قراءة ملف الصورة من جهازك.');
             resolve(null);
         };
         reader.readAsDataURL(file);

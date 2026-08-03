@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة التحكم - ماركت الأخوة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
     <style>
+        /* نفس الستايل السابق مع إضافات بسيطة */
         :root {
             --primary: #f27a1a;
             --bg: #f5f5f5;
@@ -28,87 +28,30 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg); color: var(--text); padding: 20px 10px 80px 10px; }
         #loginOverlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85);
-            z-index: 10000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85); z-index: 10000; display: flex;
+            justify-content: center; align-items: center; padding: 20px;
         }
-        .login-box {
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
+        .login-box { background: var(--card-bg); padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; }
         .login-box h2 { margin-bottom: 15px; color: var(--primary); }
-        .login-box input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--input-bg);
-            color: var(--text);
-        }
+        .login-box input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
         .admin-container { max-width: 800px; margin: 0 auto; display: none; }
-        h1, h2 { margin-bottom: 15px; color: var(--primary); }
-        .card {
-            background: var(--card-bg);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
-            border: 1px solid var(--border);
-        }
+        h1, h2, h3 { margin-bottom: 15px; color: var(--primary); }
+        .card { background: var(--card-bg); border-radius: 10px; padding: 20px; margin-bottom: 25px; border: 1px solid var(--border); }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--input-bg);
-            color: var(--text);
-        }
-        .btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 15px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-        }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); }
+        .btn { background: var(--primary); color: white; border: none; padding: 10px 20px; font-size: 15px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; }
         .btn-danger { background: var(--danger); padding: 5px 10px; font-size: 12px; width: auto; }
         .table-responsive { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border); font-size: 14px; }
         th { background: var(--input-bg); }
-        .order-card {
-            border-right: 4px solid var(--primary);
-            padding: 15px;
-            margin-bottom: 15px;
-            background: var(--card-bg);
-            border-radius: 4px;
-        }
+        .order-card { border-right: 4px solid var(--primary); padding: 15px; margin-bottom: 15px; background: var(--card-bg); border-radius: 4px; }
         .product-img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
-        .dark-toggle {
-            position: fixed;
-            top: 15px; left: 15px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 50%;
-            width: 40px; height: 40px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 20px; cursor: pointer; z-index: 999;
-            color: var(--text);
-        }
+        .dark-toggle { position: fixed; top: 15px; left: 15px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; z-index: 999; color: var(--text); }
+        .flex-row { display: flex; gap: 10px; align-items: center; }
+        .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -120,7 +63,6 @@
     <div id="loginOverlay">
         <div class="login-box">
             <h2><i class="fa-solid fa-lock"></i> دخول المسؤول</h2>
-            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">يرجى إدخال كلمة المرور للوصول إلى اللوحة</p>
             <input type="password" id="adminPassInput" placeholder="أدخل كلمة المرور">
             <button class="btn" id="loginBtn">تسجيل الدخول</button>
         </div>
@@ -129,12 +71,13 @@
     <div class="admin-container" id="adminMainContent">
         <h1><i class="fa-solid fa-user-gear"></i> لوحة إدارة المتجر</h1>
 
+        <!-- إضافة منتج جديد (بها حقل الخصم) -->
         <div class="card">
-            <h2>إضافة منتج جديد أو بطاقة ألعاب</h2>
+            <h2>إضافة منتج جديد</h2>
             <form id="addProductForm">
                 <div class="form-group">
-                    <label>اسم المنتج أو البطاقة:</label>
-                    <input type="text" id="pName" required placeholder="مثال: متة 250غ أو شدات ببجي 60">
+                    <label>اسم المنتج:</label>
+                    <input type="text" id="pName" required placeholder="مثال: بطاطس شيبس 150غ">
                 </div>
                 <div class="form-group">
                     <label>السعر (ل.س):</label>
@@ -142,41 +85,46 @@
                 </div>
                 <div class="form-group">
                     <label>القسم:</label>
-                    <select id="pCategory" required>
-                        <option value="مؤن">مؤن أساسية</option>
-                        <option value="ألبان">ألبان وأجبان</option>
-                        <option value="زيوت">زيوت وسمن</option>
-                        <option value="مشروبات">مشروبات</option>
-                        <option value="بهارات">بهارات</option>
-                        <option value="شبسات">شبسات</option>
-                        <option value="حلويات">حلويات</option>
-                        <option value="منظفات">منظفات</option>
-                        <option value="عروض">🔥 قسم العروض</option>
-                        <option value="ألعاب">🎮 شحن الألعاب الإلكترونية</option>
-                    </select>
+                    <select id="pCategory" required></select>
                 </div>
                 <div class="form-group">
-                    <label>صورة المنتج / البطاقة:</label>
+                    <label>نسبة الخصم % (اختياري):</label>
+                    <input type="number" id="pDiscount" placeholder="0" min="0" max="99" value="0">
+                </div>
+                <div class="form-group">
+                    <label>صورة المنتج:</label>
                     <input type="file" id="pImgFile" accept="image/*">
                 </div>
                 <button type="submit" class="btn" id="saveProductBtn">حفظ المنتج</button>
             </form>
         </div>
 
+        <!-- إدارة الأقسام -->
+        <div class="card">
+            <h2>إدارة الأقسام</h2>
+            <div class="flex-row" style="margin-bottom:15px;">
+                <input type="text" id="newCategoryName" placeholder="اسم القسم الجديد" style="flex:1;">
+                <button class="btn" id="addCategoryBtn" style="width:auto;">إضافة قسم</button>
+            </div>
+            <div id="categoriesList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        </div>
+
+        <!-- الطلبات -->
         <div class="card">
             <h2>الطلبات الواردة</h2>
             <div id="ordersContainer"><p>جاري تحميل الطلبات...</p></div>
         </div>
 
+        <!-- المنتجات -->
         <div class="card">
-            <h2>إدارة المنتجات والحالية</h2>
+            <h2>إدارة المنتجات الحالية</h2>
             <div class="table-responsive">
                 <table>
                     <thead>
-                        <tr><th>الصورة</th><th>الاسم</th><th>السعر</th><th>القسم</th><th>إجراء</th></tr>
+                        <tr><th>الصورة</th><th>الاسم</th><th>السعر</th><th>الخصم</th><th>القسم</th><th>إجراء</th></tr>
                     </thead>
                     <tbody id="adminProductsTable">
-                        <tr><td colspan="5" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
+                        <tr><td colspan="6" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -187,7 +135,9 @@
         import { 
             db, collection, addDoc, onSnapshot, doc, deleteDoc, 
             query, orderBy, serverTimestamp, escapeHTML, 
-            uploadImageToImgBB, toggleDarkMode, loadDarkModePreference 
+            uploadImageToImgBB, toggleDarkMode, loadDarkModePreference,
+            // دوال الأقسام الجديدة
+            addCategoryToFirestore, getCategoriesListener, deleteCategory 
         } from './app.js';
 
         loadDarkModePreference();
@@ -210,9 +160,9 @@
         });
 
         function initAdminDashboard() {
+            // --- الطلبات ---
             const ordersContainer = document.getElementById('ordersContainer');
             const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-            
             onSnapshot(qOrders, (snapshot) => {
                 if (snapshot.empty) {
                     ordersContainer.innerHTML = '<p style="color:#888;">لا توجد طلبات جديدة حالياً.</p>';
@@ -226,22 +176,23 @@
                                 <strong>رقم الهاتف: ${escapeHTML(order.phone)}</strong>
                                 <small style="color:#888;">${escapeHTML(order.date)}</small>
                             </div>
-                            <p style="margin-bottom:5px;"><strong>العنوان / منطقة التوصيل:</strong> ${escapeHTML(order.address)}</p>
-                            <p style="margin-bottom:5px;"><strong>فترة التوصيل:</strong> ${escapeHTML(order.deliveryTime || 'غير محددة')}</p>
-                            <p style="margin-bottom:5px;"><strong>الطلبات:</strong> ${escapeHTML(order.items)}</p>
-                            <p style="color:var(--primary); font-weight:bold;"><strong>الإجمالي النهائي:</strong> ${escapeHTML(order.total)} ل.س</p>
-                            <button class="btn btn-danger" style="margin-top:10px;" onclick="window.deleteOrder('${docSnap.id}')">حذف الطلب</button>
+                            <p><strong>العنوان:</strong> ${escapeHTML(order.address)}</p>
+                            <p><strong>الطلبات:</strong> ${escapeHTML(order.items)}</p>
+                            <p><strong>الإجمالي:</strong> ${escapeHTML(order.total)} ل.س</p>
+                            <p><strong>التوصيل:</strong> ${escapeHTML(order.deliveryType || 'غير محدد')} - ${escapeHTML(order.deliveryCost || '0')} ل.س</p>
+                            <p><strong>وقت التوصيل المطلوب:</strong> ${escapeHTML(order.deliveryTime || 'غير محدد')}</p>
+                            <button class="btn btn-danger" onclick="window.deleteOrder('${docSnap.id}')">حذف الطلب</button>
                         </div>
                     `;
                 }).join('');
             });
 
+            // --- المنتجات ---
             const adminTable = document.getElementById('adminProductsTable');
             const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
-
             onSnapshot(qProducts, (snapshot) => {
                 if (snapshot.empty) {
-                    adminTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">لا توجد منتجات.</td></tr>';
+                    adminTable.innerHTML = '<tr><td colspan="6" style="text-align:center;">لا توجد منتجات.</td></tr>';
                     return;
                 }
                 adminTable.innerHTML = snapshot.docs.map(docSnap => {
@@ -249,72 +200,91 @@
                     const imgUrlStr = String(p.imageUrl || '').trim();
                     const isValidUrl = imgUrlStr !== '' && imgUrlStr !== 'null' && imgUrlStr !== 'undefined';
                     const imgTag = isValidUrl ?
-                        `<img src="${escapeHTML(imgUrlStr)}" class="product-img-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">` +
-                        `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:20px; color:#aaa;"></i>` :
-                        `<i class="fa-solid fa-basket-shopping" style="font-size:20px; color:#aaa;"></i>`;
+                        `<img src="${escapeHTML(imgUrlStr)}" class="product-img-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';"><i class="fa-solid fa-basket-shopping" style="display:none;"></i>` :
+                        `<i class="fa-solid fa-basket-shopping"></i>`;
+                    const discount = p.discount && p.discount > 0 ? `<span class="badge">${p.discount}%</span>` : '—';
                     return `
                         <tr>
                             <td>${imgTag}</td>
                             <td>${escapeHTML(p.name)}</td>
                             <td>${escapeHTML(p.price)} ل.س</td>
+                            <td>${discount}</td>
                             <td>${escapeHTML(p.category)}</td>
                             <td><button class="btn btn-danger" onclick="window.deleteProduct('${docSnap.id}')">حذف</button></td>
                         </tr>
                     `;
                 }).join('');
             });
+
+            // --- إدارة الأقسام ---
+            const categoriesListDiv = document.getElementById('categoriesList');
+            const newCategoryInput = document.getElementById('newCategoryName');
+            const addCategoryBtn = document.getElementById('addCategoryBtn');
+
+            function renderCategories(categories) {
+                categoriesListDiv.innerHTML = categories.map(cat => `
+                    <span style="background:var(--input-bg); padding:5px 10px; border-radius:15px; display:flex; align-items:center; gap:8px;">
+                        ${escapeHTML(cat.name)}
+                        <i class="fa-solid fa-times" style="color:red; cursor:pointer;" onclick="window.deleteCategoryFirestore('${cat.id}')"></i>
+                    </span>
+                `).join('');
+            }
+
+            // جلب الأقسام
+            getCategoriesListener((categories) => {
+                renderCategories(categories);
+                // تحديث قائمة الأقسام في نموذج المنتج
+                const select = document.getElementById('pCategory');
+                if (select) {
+                    select.innerHTML = categories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('');
+                }
+            });
+
+            addCategoryBtn.addEventListener('click', async () => {
+                const name = newCategoryInput.value.trim();
+                if (!name) return alert('الرجاء إدخال اسم القسم');
+                try {
+                    await addCategoryToFirestore(name);
+                    newCategoryInput.value = '';
+                } catch (e) {
+                    alert('خطأ: ' + e.message);
+                }
+            });
+
+            window.deleteCategoryFirestore = async (id) => {
+                if (confirm('حذف هذا القسم؟')) await deleteCategory(id);
+            };
         }
 
-        window.deleteOrder = async function(id) {
-            if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
-                try {
-                    await deleteDoc(doc(db, "orders", id));
-                } catch (e) {
-                    alert('خطأ أثناء الحذف: ' + e.message);
-                }
-            }
+        window.deleteOrder = async (id) => {
+            if (confirm('حذف الطلب؟')) await deleteDoc(doc(db, "orders", id));
         };
-
-        window.deleteProduct = async function(id) {
-            if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-                try {
-                    await deleteDoc(doc(db, "products", id));
-                } catch (e) {
-                    alert('خطأ أثناء حذف المنتج: ' + e.message);
-                }
-            }
+        window.deleteProduct = async (id) => {
+            if (confirm('حذف المنتج؟')) await deleteDoc(doc(db, "products", id));
         };
 
         document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
-
             const saveBtn = document.getElementById('saveProductBtn');
-            saveBtn.innerText = 'جاري حفظ المنتج والصورة...';
+            saveBtn.innerText = 'جاري الحفظ...';
             saveBtn.disabled = true;
-
             const name = document.getElementById('pName').value.trim();
             const price = Number(document.getElementById('pPrice').value);
             const category = document.getElementById('pCategory').value;
+            const discount = Number(document.getElementById('pDiscount').value) || 0;
             const fileInput = document.getElementById('pImgFile');
             let imageUrl = '';
-
             try {
-                if (fileInput.files.length > 0) {
-                    imageUrl = await uploadImageToImgBB(fileInput.files[0]);
-                }
-
+                if (fileInput.files.length > 0) imageUrl = await uploadImageToImgBB(fileInput.files[0]);
                 await addDoc(collection(db, "products"), {
-                    name: String(name),
-                    price: Number(price),
-                    category: String(category),
-                    imageUrl: String(imageUrl),
+                    name, price, category, discount,
+                    imageUrl,
                     createdAt: serverTimestamp()
                 });
-
-                alert('✅ تمت إضافة المنتج بنجاح!');
+                alert('✅ تمت الإضافة!');
                 this.reset();
             } catch (error) {
-                alert('❌ حدث خطأ أثناء إضافة المنتج: ' + error.message);
+                alert('❌ خطأ: ' + error.message);
             } finally {
                 saveBtn.innerText = 'حفظ المنتج';
                 saveBtn.disabled = false;

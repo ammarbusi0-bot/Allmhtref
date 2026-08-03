@@ -130,7 +130,7 @@ export function getInviteLink() {
 
 export function shareProduct(platform, productName, productPrice) {
     const code = getMyReferralCode();
-    const message = `🛍️ ${productName}\n💰 ${productPrice}\n🎁 كود خصم 2%: ${code}\n📱 ${window.location.href}`;
+    const message = `🛍️ ${productName}\n💰 ${productPrice}\n🎁 كود خصم 10%: ${code}\n📱 ${window.location.href}`;
     const encoded = encodeURIComponent(message);
     
     const links = {
@@ -160,7 +160,7 @@ export function handleReferral() {
         localStorage.setItem('referralPoints', JSON.stringify(points));
         
         setTimeout(() => {
-            alert('🎉 مرحباً! تم تفعيل كود الخصم 2% على طلبك الأول فوق 100 ليرة');
+            alert('🎉 مرحباً! تم تفعيل كود الخصم 10% على طلبك الأول فوق 100 ليرة');
         }, 500);
     }
 }
@@ -169,7 +169,7 @@ export function getReferralDiscount(total) {
     if (total < 100) return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     if (localStorage.getItem('discountApplied')) return 0;
-    return total * 0.02;
+    return total * 0.10;
 }
 
 export function applyReferralDiscount(total) {
@@ -199,7 +199,7 @@ export function showReferralCode() {
                     </button>
                 </div>
             </div>
-            <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على 2% خصم لأول طلب فوق 100 ليرة</p>
+            <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على 10% خصم لأول طلب فوق 100 ليرة</p>
         `;
     }
 }
@@ -213,7 +213,7 @@ export function copyReferralCode() {
 
 export function shareReferral() {
     const code = getMyReferralCode();
-    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على 2% خصم: ${code}\n📱 ${window.location.href}`;
+    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على 10% خصم: ${code}\n📱 ${window.location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
 }
 
@@ -245,7 +245,6 @@ export function displayProducts(items) {
         const originalPrice = Number(p.price) || 0;
         const finalPrice = discount > 0 ? originalPrice - (originalPrice * discount / 100) : originalPrice;
 
-        // أزرار المشاركة داخل كل منتج
         const shareBtns = `
             <div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;justify-content:center;">
                 <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
@@ -452,7 +451,7 @@ export function renderCartItems() {
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
             ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة (2%):</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة (10%):</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
             <div class="summary-line"><span>🚚 التوصيل (${currentDeliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + currentDeliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} Lt</span></div>
         `;

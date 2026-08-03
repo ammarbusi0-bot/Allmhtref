@@ -24,7 +24,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp };
+export { db };
 
 let globalProducts = [];
 let cart = [];
@@ -59,8 +59,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function uploadImageToImgBB(fileInput) { 
-    const file = fileInput.files[0]; 
-    if (!file) return null; 
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return null; 
+    const file = fileInput.files[0];
 
     const formData = new FormData(); 
     formData.append('image', file); 
@@ -247,26 +247,27 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async functi
 
     const phone = document.getElementById('userPhone').value.trim();
     const address = document.getElementById('userAddress').value.trim();
-    const itemsSummary = cart.map(i => `${i.name} (${i.qty})`).join(' ، ');
+    const itemsSummary = cart.map(i => `${i.name} (العدد: ${i.qty})`).join(' - ');
     const totalSum = cart.reduce((sum, i) => sum + ((Number(i.price) || 0) * i.qty), 0);
 
     const newOrder = {
-        phone: phone,
-        address: address,
-        items: itemsSummary,
-        total: totalSum,
+        phone: String(phone),
+        address: String(address),
+        items: String(itemsSummary),
+        total: Number(totalSum),
         date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         createdAt: serverTimestamp()
     };
 
     try {
         await addDoc(collection(db, "orders"), newOrder);
-        alert(`تم إرسال طلبك بنجاح وسوف نتواصل معك عبر رقم الهاتف: ${phone}`);
+        alert(`تم إرسال طلبك بنجاح! وسوف نتواصل معك عبر رقم الهاتف: ${phone}`);
         cart = [];
         updateCartBadge();
         window.toggleCartModal();
         this.reset();
     } catch (error) {
+        console.error("Error adding order: ", error);
         alert('حدث خطأ أثناء إرسال الطلب: ' + error.message);
     } finally {
         submitBtn.innerText = 'تأكيد الطلب';

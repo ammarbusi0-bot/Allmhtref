@@ -3,267 +3,350 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إدارة ماركت الأخوة - التحكم الحي</title>
+    <title>لوحة التحكم - ماركت الأخوة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f8f9fa; padding: 20px; direction: rtl; }
-        .box { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        h2 { color: #f27a1a; margin-bottom: 15px; font-size: 18px; }
-        input, select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        .btn { background: #f27a1a; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn:disabled { background: #ccc; cursor: not-allowed; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; font-size: 13px; }
-        th { background: #eee; }
-        .btn-delete { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
-        
+        :root {
+            --primary: #f27a1a;
+            --bg: #f5f5f5;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --border: #e6e6e6;
+            --danger: #e63946;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px 10px 80px 10px;
+        }
+
+        /* نافذة تسجيل الدخول بكلمة السر */
         #loginOverlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: #f8f9fa; z-index: 9999;
-            display: flex; justify-content: center; align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
-        .login-card {
-            background: white; padding: 30px; border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center;
+
+        .login-box {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        .img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+
+        .login-box h2 { margin-bottom: 15px; color: var(--primary); }
+        .login-box input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 6px; }
+
+        .admin-container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: none; /* مخفي لحين إدخال كلمة المرور */
+        }
+
+        h1, h2 {
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            padding: 5px 10px;
+            font-size: 12px;
+            width: auto;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: white;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        th {
+            background: #fafafa;
+        }
+
+        .order-card {
+            border-right: 4px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 15px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .product-img-preview {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- شاشة تسجيل الدخول للحماية -->
+    <!-- شاشة إدخال كلمة سر المدير -->
     <div id="loginOverlay">
-        <div class="login-card">
-            <h2 style="margin-bottom: 20px;"><i class="fa-solid fa-lock"></i> تسجيل دخول الأدمن</h2>
-            <input type="password" id="adminPass" placeholder="أدخل كلمة المرور (admin123)">
-            <button class="btn" style="width: 100%;" onclick="checkAdminAuth()">دخول اللوحة</button>
+        <div class="login-box">
+            <h2><i class="fa-solid fa-lock"></i> دخول المسؤول</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">يرجى إدخال كلمة المرور للوصول إلى اللوحة</p>
+            <input type="password" id="adminPassInput" placeholder="أدخل كلمة المرور">
+            <button class="btn" onclick="checkAdminPassword()">تسجيل الدخول</button>
         </div>
     </div>
 
-    <!-- محتوى لوحة الإدارة -->
-    <div id="adminContent" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2><i class="fa-solid fa-gears"></i> لوحة الإدارة الحية - ماركت الأخوة</h2>
-            <button class="btn" style="background:#6c757d;" onclick="logoutAdmin()">تسجيل الخروج</button>
+    <div class="admin-container" id="adminMainContent">
+        <h1><i class="fa-solid fa-user-gear"></i> لوحة إدارة المتجر</h1>
+
+        <div class="card">
+            <h2>إضافة منتج جديد</h2>
+            <form id="addProductForm">
+                <div class="form-group">
+                    <label>اسم المنتج:</label>
+                    <input type="text" id="pName" required placeholder="مثال: زيت زيتون 1 لتر">
+                </div>
+                <div class="form-group">
+                    <label>السعر (ل.س):</label>
+                    <input type="number" id="pPrice" required placeholder="مثال: 25000">
+                </div>
+                <div class="form-group">
+                    <label>القسم:</label>
+                    <select id="pCategory" required>
+                        <option value="مؤن">مؤن أساسية</option>
+                        <option value="ألبان">ألبان وأجبان</option>
+                        <option value="زيوت">زيوت وسمن</option>
+                        <option value="مشروبات">مشروبات</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>صورة المنتج (رفع المباشر عبر ImgBB):</label>
+                    <input type="file" id="pImgFile" accept="image/*">
+                </div>
+                <button type="submit" class="btn" id="saveProductBtn">حفظ المنتج</button>
+            </form>
         </div>
 
-        <div class="box">
-            <h2>1. إضافة منتج جديد (رفع الصورة لـ ImgBB والحفظ في Firestore)</h2>
-            <input type="text" id="pName" placeholder="اسم المنتج الغذائي">
-            <input type="number" id="pPrice" placeholder="السعر (أرقام فقط)">
-            <select id="pCat">
-                <option value="مؤن">مؤن أساسية</option>
-                <option value="ألبان">ألبان وأجبان</option>
-                <option value="زيوت">زيوت وسمن</option>
-                <option value="مشروبات">مشروبات</option>
-            </select>
-
-            <div style="margin-bottom: 12px; text-align: right;">
-                <label style="display:block; font-size:13px; font-weight:bold; margin-bottom:5px;">اختر صورة المنتج من جهازك:</label>
-                <input type="file" id="productImageFile" accept="image/*" style="border: 1px dashed #f27a1a; padding: 8px; background: #fff8f3;">
+        <div class="card">
+            <h2>الطلبات الواردة</h2>
+            <div id="ordersContainer">
+                <p>جاري تحميل الطلبات...</p>
             </div>
-
-            <button class="btn" id="btnSaveProduct" onclick="saveProduct()">
-                <i class="fa-solid fa-cloud-arrow-up"></i> رفع الصورة وحفظ المنتج فوراً
-            </button>
         </div>
 
-        <div class="box">
-            <h2>2. إدارة المنتجات الحالية</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>الصورة</th>
-                        <th>المنتج</th>
-                        <th>السعر</th>
-                        <th>التصنيف</th>
-                        <th>إجراء</th>
-                    </tr>
-                </thead>
-                <tbody id="productsAdminList">
-                    <tr><td colspan="6" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="box">
-            <h2>3. الطلبات الواردة في الوقت الفعلي (Real-time Orders)</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>رقم الهاتف</th>
-                        <th>العنوان</th>
-                        <th>الطلب</th>
-                        <th>المبلغ</th>
-                        <th>التاريخ</th>
-                        <th>إجراء</th>
-                    </tr>
-                </thead>
-                <tbody id="ordersList">
-                    <tr><td colspan="7" style="text-align:center;">جاري استماع الطلبات الواردة...</td></tr>
-                </tbody>
-            </table>
+        <div class="card">
+            <h2>إدارة المنتجات الحالية</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>الصورة</th>
+                            <th>الاسم</th>
+                            <th>السعر</th>
+                            <th>القسم</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminProductsTable">
+                        <tr><td colspan="5" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script type="module">
-        import { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp } from "./app.js";
+        import { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp } from './app.js';
 
-        const ADMIN_PASS = "admin123";
-
-        window.checkAdminAuth = function() {
-            const pass = document.getElementById('adminPass').value;
-            if (pass === ADMIN_PASS) {
-                sessionStorage.setItem('alukhowah_admin_logged', 'true');
-                showDashboard();
+        // التحقق من كلمة السر (كلمة السر الافتراضية 123456)
+        window.checkAdminPassword = function() {
+            const pass = document.getElementById('adminPassInput').value;
+            if (pass === "123456") {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('adminMainContent').style.display = 'block';
+                initAdminDashboard();
             } else {
                 alert('كلمة المرور غير صحيحة!');
             }
         };
 
-        window.logoutAdmin = function() {
-            sessionStorage.removeItem('alukhowah_admin_logged');
-            location.reload();
+        function initAdminDashboard() {
+            const ordersContainer = document.getElementById('ordersContainer');
+            const ordersQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+            
+            onSnapshot(ordersQuery, (snapshot) => {
+                if (snapshot.empty) {
+                    ordersContainer.innerHTML = '<p style="color:#888;">لا توجد طلبات جديدة حالياً.</p>';
+                    return;
+                }
+
+                ordersContainer.innerHTML = snapshot.docs.map(docSnap => {
+                    const order = docSnap.data();
+                    return `
+                        <div class="order-card">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <strong>رقم الهاتف: ${order.phone}</strong>
+                                <small style="color:#888;">${order.date || ''}</small>
+                            </div>
+                            <p style="margin-bottom:5px;"><strong>العنوان:</strong> ${order.address}</p>
+                            <p style="margin-bottom:5px;"><strong>الطلبات:</strong> ${order.items}</p>
+                            <p style="color:var(--primary); font-weight:bold;"><strong>الإجمالي:</strong> ${order.total} ل.س</p>
+                            <button class="btn btn-danger" style="margin-top:10px;" onclick="deleteOrder('${docSnap.id}')">حذف الطلب</button>
+                        </div>
+                    `;
+                }).join('');
+            });
+
+            const adminTable = document.getElementById('adminProductsTable');
+            const productsQuery = query(collection(db, "products"), orderBy("createdAt", "desc"));
+
+            onSnapshot(productsQuery, (snapshot) => {
+                if (snapshot.empty) {
+                    adminTable.innerHTML = '<tr><td colspan="5" style="text-align:center;">لا توجد منتجات.</td></tr>';
+                    return;
+                }
+
+                adminTable.innerHTML = snapshot.docs.map(docSnap => {
+                    const p = docSnap.data();
+                    const imgTag = (p.imageUrl && p.imageUrl.trim() !== '') 
+                        ? `<img src="${p.imageUrl}" class="product-img-preview" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">` 
+                        : `<i class="fa-solid fa-basket-shopping"></i>`;
+
+                    return `
+                        <tr>
+                            <td>${imgTag}</td>
+                            <td>${p.name}</td>
+                            <td>${p.price} ل.س</td>
+                            <td>${p.category}</td>
+                            <td><button class="btn btn-danger" onclick="deleteProduct('${docSnap.id}')">حذف</button></td>
+                        </tr>
+                    `;
+                }).join('');
+            });
+        }
+
+        window.deleteOrder = async function(id) {
+            if (confirm('هل أنت تأكد من حذف هذا الطلب؟')) {
+                try {
+                    await deleteDoc(doc(db, "orders", id));
+                } catch (e) {
+                    alert('خطأ أثناء الحذف: ' + e.message);
+                }
+            }
         };
 
-        function showDashboard() {
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('adminContent').style.display = 'block';
-            initRealtimeAdmin();
-        }
-
-        if (sessionStorage.getItem('alukhowah_admin_logged') === 'true') {
-            showDashboard();
-        }
-
-        function escapeHTML(str) {
-            return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m]);
-        }
-
-        // إضافة المنتج مع رفع الصورة لـ ImgBB
-        window.saveProduct = async function() {
-            const name = document.getElementById('pName').value.trim();
-            const price = Number(document.getElementById('pPrice').value.trim());
-            const cat = document.getElementById('pCat').value;
-            const fileInput = document.getElementById('productImageFile');
-            const saveBtn = document.getElementById('btnSaveProduct');
-
-            if (!name || isNaN(price) || price <= 0) { 
-                alert('يرجى كتابة الاسم والسعر بشكل صحيح'); 
-                return; 
+        window.deleteProduct = async function(id) {
+            if (confirm('هل أنت متاكد من حذف هذا المنتج؟')) {
+                try {
+                    await deleteDoc(doc(db, "products", id));
+                } catch (e) {
+                    alert('خطأ أثناء حذف المنتج: ' + e.message);
+                }
             }
+        };
 
-            const originalText = saveBtn.innerHTML;
-            saveBtn.innerText = 'جاري رفع الصورة والبيانات...';
+        document.getElementById('addProductForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveProductBtn');
+            saveBtn.innerText = 'جاري الحفظ والرفع...';
             saveBtn.disabled = true;
 
+            const name = document.getElementById('pName').value.trim();
+            const price = Number(document.getElementById('pPrice').value);
+            const category = document.getElementById('pCategory').value;
+            const fileInput = document.getElementById('pImgFile');
+
+            let imageUrl = '';
+
             try {
-                let imageUrl = '';
-                
-                if (fileInput.files && fileInput.files[0]) {
-                    imageUrl = await window.uploadImageToImgBB(fileInput);
-                    if (!imageUrl) {
-                        alert('فشل رفع الصورة إلى ImgBB، يرجى إعادة المحاولة.');
-                        saveBtn.innerHTML = originalText;
-                        saveBtn.disabled = false;
-                        return;
-                    }
+                if (fileInput.files.length > 0 && window.uploadImageToImgBB) {
+                    imageUrl = await window.uploadImageToImgBB(fileInput) || '';
                 }
 
                 await addDoc(collection(db, "products"), {
                     name: name,
                     price: price,
-                    category: cat,
-                    imageUrl: imageUrl || '',
-                    icon: 'fa-box',
+                    category: category,
+                    imageUrl: imageUrl,
                     createdAt: serverTimestamp()
                 });
 
-                alert('تم رفع الصورة وحفظ المنتج بنجاح!');
-                document.getElementById('pName').value = '';
-                document.getElementById('pPrice').value = '';
-                document.getElementById('productImageFile').value = '';
-
+                alert('تمت إضافة المنتج بنجاح!');
+                this.reset();
             } catch (error) {
-                alert('حدث خطأ أثناء الإضافة: ' + error.message);
+                alert('حدث خطأ أثناء إضافة المنتج: ' + error.message);
             } finally {
-                saveBtn.innerHTML = originalText;
+                saveBtn.innerText = 'حفظ المنتج';
                 saveBtn.disabled = false;
             }
-        };
-
-        window.deleteProduct = async function(docId) {
-            if(!confirm('هل أنت تأكد من حذف هذا المنتج؟')) return;
-            try {
-                await deleteDoc(doc(db, "products", docId));
-            } catch (error) {
-                alert('حدث خطأ أثناء الحذف: ' + error.message);
-            }
-        };
-
-        window.deleteOrder = async function(docId) {
-            if(!confirm('هل تم إنهاء الطلب لحذفه؟')) return;
-            try {
-                await deleteDoc(doc(db, "orders", docId));
-            } catch (error) {
-                alert('حدث خطأ أثناء إزالة الطلب: ' + error.message);
-            }
-        };
-
-        function initRealtimeAdmin() {
-            const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
-            onSnapshot(qProducts, (snapshot) => {
-                const list = document.getElementById('productsAdminList');
-                if (snapshot.empty) {
-                    list.innerHTML = '<tr><td colspan="6" style="text-align:center;">لا توجد منتجات حالياً.</td></tr>';
-                    return;
-                }
-                let idx = 1;
-                list.innerHTML = snapshot.docs.map(doc => {
-                    const p = doc.data();
-                    const imgTag = p.imageUrl 
-                        ? `<img src="${p.imageUrl}" class="img-preview" alt="img">`
-                        : `<i class="fa-solid fa-box" style="font-size:20px; color:#f27a1a;"></i>`;
-
-                    return `
-                        <tr>
-                            <td>${idx++}</td>
-                            <td>${imgTag}</td>
-                            <td>${escapeHTML(p.name)}</td>
-                            <td>${p.price} ل.س</td>
-                            <td>${escapeHTML(p.category)}</td>
-                            <td><button class="btn-delete" onclick="deleteProduct('${doc.id}')">حذف</button></td>
-                        </tr>
-                    `;
-                }).join('');
-            });
-
-            const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-            onSnapshot(qOrders, (snapshot) => {
-                const ordersList = document.getElementById('ordersList');
-                if (snapshot.empty) {
-                    ordersList.innerHTML = '<tr><td colspan="7" style="text-align:center;">لا توجد طلبات واردة حالياً.</td></tr>';
-                    return;
-                }
-                let idx = 1;
-                ordersList.innerHTML = snapshot.docs.map(doc => {
-                    const o = doc.data();
-                    return `
-                        <tr>
-                            <td>${idx++}</td>
-                            <td><strong>${escapeHTML(o.phone)}</strong></td>
-                            <td>${escapeHTML(o.address || 'غير محدد')}</td>
-                            <td>${escapeHTML(o.items)}</td>
-                            <td>${escapeHTML(o.total)} ل.س</td>
-                            <td>${o.date || 'الآن'}</td>
-                            <td><button class="btn-delete" style="background:#28a745;" onclick="deleteOrder('${doc.id}')">تم التنفيذ</button></td>
-                        </tr>
-                    `;
-                }).join('');
-            });
-        }
+        });
     </script>
 </body>
 </html>

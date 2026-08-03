@@ -11,7 +11,6 @@ import {
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ===== إعداد Firebase =====
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -73,23 +72,19 @@ export function loadDarkModePreference() {
 }
 
 // ===== متغيرات عامة =====
-export let globalProducts = [];
-export let cart = [];
-export let isSubmitting = false;
+let globalProducts = [];
+let cart = [];
+let isSubmitting = false;
 let currentCategory = 'all';
 let currentSearch = '';
 
-// ===== جلب المنتجات (للاستخدام في index.html) =====
+// ===== جلب المنتجات =====
 export function initProductsListener() {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
-
     const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
-        globalProducts = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
+        globalProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         applyFilters();
     }, (error) => {
         console.error("خطأ جلب المنتجات:", error);
@@ -166,7 +161,7 @@ export function toggleFavorite(id) {
         favs.push(strId);
     }
     localStorage.setItem('alukhowah_favs', JSON.stringify(favs));
-    applyFilters(); // إعادة تطبيق الفلتر بعد تغيير المفضلة
+    applyFilters();
 }
 
 // ===== السلة =====
@@ -255,17 +250,15 @@ export function initCheckoutForm() {
         const itemsSummary = cart.map(i => `${escapeHTML(i.name)} (العدد: ${i.qty})`).join(' - ');
         const totalSum = cart.reduce((sum, i) => sum + ((Number(i.price) || 0) * i.qty), 0);
 
-        const newOrder = {
-            phone: String(phone),
-            address: String(address),
-            items: String(itemsSummary),
-            total: Number(totalSum),
-            date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-            createdAt: serverTimestamp()
-        };
-
         try {
-            await addDoc(collection(db, "orders"), newOrder);
+            await addDoc(collection(db, "orders"), {
+                phone: String(phone),
+                address: String(address),
+                items: String(itemsSummary),
+                total: Number(totalSum),
+                date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+                createdAt: serverTimestamp()
+            });
             alert(`تم إرسال طلبك بنجاح! وسوف نتواصل معك عبر رقم الهاتف: ${phone}`);
             cart = [];
             updateCartBadge();
@@ -282,7 +275,7 @@ export function initCheckoutForm() {
     });
 }
 
-// ===== تهيئة الصفحة الرئيسية (index.html) =====
+// ===== تهيئة الصفحة الرئيسية =====
 export function initMainPage() {
     loadDarkModePreference();
 
@@ -315,18 +308,13 @@ export function initMainPage() {
         });
     }
 
-    // ربط أزرار المظهر الداكن
     document.querySelectorAll('.dark-toggle').forEach(btn => {
         btn.addEventListener('click', toggleDarkMode);
     });
 
-    // تهيئة الاستماع للمنتجات
     initProductsListener();
-
-    // تهيئة نموذج الطلب
     initCheckoutForm();
 
-    // جعل الدوال العامة متاحة في window
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.removeFromCart = removeFromCart;

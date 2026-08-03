@@ -29,7 +29,33 @@ export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, ser
 let globalProducts = [];
 let cart = [];
 
-// دالة رفع الصور المباشرة لـ ImgBB
+document.addEventListener("DOMContentLoaded", () => {
+    const enterBtn = document.getElementById("enterBtn");
+    const welcomeOverlay = document.getElementById("welcomeOverlay");
+    const bgMusic = document.getElementById("bgMusic");
+    const toggleMusicBtn = document.getElementById("toggleMusicBtn");
+    const musicIcon = document.getElementById("musicIcon");
+
+    if (enterBtn && welcomeOverlay && bgMusic) {
+        enterBtn.addEventListener("click", () => {
+            bgMusic.play().catch(err => console.log("Audio play error:", err));
+            welcomeOverlay.style.display = "none";
+        });
+    }
+
+    if (toggleMusicBtn && bgMusic && musicIcon) {
+        toggleMusicBtn.addEventListener("click", () => {
+            if (bgMusic.paused) {
+                bgMusic.play();
+                musicIcon.className = "fa-solid fa-volume-high";
+            } else {
+                bgMusic.pause();
+                musicIcon.className = "fa-solid fa-volume-xmark";
+            }
+        });
+    }
+});
+
 async function uploadImageToImgBB(fileInput) { 
     const file = fileInput.files[0]; 
     if (!file) return null; 
@@ -50,10 +76,8 @@ async function uploadImageToImgBB(fileInput) {
     } 
 }
 
-// ربط الدالة بصراحة بالنطاق العام للمتصفح حتى تتمكن admin.html من استدعائها
 window.uploadImageToImgBB = uploadImageToImgBB;
 
-// الاستماع المباشر للمنتجات في Firestore
 if (document.getElementById('productsGrid')) {
     const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
@@ -97,9 +121,10 @@ function displayProducts(items) {
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(String(p.id));
         
-        const imageElement = p.imageUrl && p.imageUrl !== '' 
-            ? `<img src="${p.imageUrl}" alt="${p.name}">`
-            : `<i class="fa-solid ${p.icon || 'fa-basket-shopping'}"></i>`;
+        // معالجة ظهور الصورة والتأكد من عدم اختفائها بالاعتماد على صورة افتراضية إن أخطأ الرابط
+        const imageElement = (p.imageUrl && p.imageUrl.trim() !== '') 
+            ? `<img src="${p.imageUrl}" alt="${p.name}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">`
+            : `<i class="fa-solid fa-basket-shopping"></i>`;
 
         return `
             <div class="product-card">
@@ -209,7 +234,6 @@ function renderCartItems() {
     totalEl.innerText = `${total} ل.س`;
 }
 
-// إرسال الطلبات إلى Firestore
 document.getElementById('checkoutForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     if (cart.length === 0) {

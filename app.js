@@ -159,8 +159,8 @@ export function displayProducts(items) {
                 <div class="product-info">
                     <div class="product-title">${escapeHTML(p.name)}</div>
                     <div class="product-price">
-                        ${discount > 0 ? `<span class="old-price">${originalPrice} ل.س</span>` : ''}
-                        ${Math.round(finalPrice)} ل.س
+                        ${discount > 0 ? `<span class="old-price">${originalPrice} Lt</span>` : ''}
+                        ${Math.round(finalPrice)} Lt
                     </div>
                 </div>
                 <button class="btn-add-cart" onclick="window.addToCart('${p.id}')">+ أضف للسلة</button>
@@ -315,13 +315,13 @@ export function renderCartItems() {
             <div class="cart-item">
                 <div>
                     <strong>${escapeHTML(item.name)}</strong>
-                    <div style="font-size:12px; color:#666;">${item.price} ل.س × ${item.qty}</div>
+                    <div style="font-size:12px; color:#666;">${item.price} Lt × ${item.qty}</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <button class="qty-btn" onclick="window.changeQty('${item.id}', -1)">-</button>
                     <span style="font-weight:bold;">${item.qty}</span>
                     <button class="qty-btn" onclick="window.changeQty('${item.id}', 1)">+</button>
-                    <span style="font-weight:bold; color:var(--primary);">${itemTotal} ل.س</span>
+                    <span style="font-weight:bold; color:var(--primary);">${itemTotal} Lt</span>
                     <i class="fa-solid fa-trash" style="color:red; cursor:pointer;" onclick="window.removeFromCart('${item.id}')"></i>
                 </div>
             </div>
@@ -334,10 +334,10 @@ export function renderCartItems() {
         const calc = calculateFinalTotal();
         
         summaryDiv.innerHTML = `
-            <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} ل.س</span></div>
-            ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} ل.س</span></div>` : ''}
-            <div class="summary-line"><span>🚚 التوصيل (${currentDeliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + currentDeliveryKm + ' كم'}):</span><span>${calc.deliveryCost} ل.س</span></div>
-            <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} ل.س</span></div>
+            <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
+            ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
+            <div class="summary-line"><span>🚚 التوصيل (${currentDeliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + currentDeliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
+            <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} Lt</span></div>
         `;
         
         const finalTotalInput = document.getElementById('finalTotal');
@@ -379,7 +379,7 @@ export function initCheckoutForm() {
                 createdAt: serverTimestamp()
             });
             
-            alert(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${Math.round(calc.finalTotal)} ل.س\nسيتم التواصل معك عبر: ${phone}`);
+            alert(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${Math.round(calc.finalTotal)} Lt\nسيتم التواصل معك عبر: ${phone}`);
             cart = [];
             updateCartBadge();
             renderCartItems();

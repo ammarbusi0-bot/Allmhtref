@@ -130,11 +130,11 @@
         <h1><i class="fa-solid fa-user-gear"></i> لوحة إدارة المتجر</h1>
 
         <div class="card">
-            <h2>إضافة منتج جديد</h2>
+            <h2>إضافة منتج جديد أو بطاقة ألعاب</h2>
             <form id="addProductForm">
                 <div class="form-group">
-                    <label>اسم المنتج:</label>
-                    <input type="text" id="pName" required placeholder="مثال: متة 250غ">
+                    <label>اسم المنتج أو البطاقة:</label>
+                    <input type="text" id="pName" required placeholder="مثال: متة 250غ أو شدات ببجي 60">
                 </div>
                 <div class="form-group">
                     <label>السعر (ل.س):</label>
@@ -147,15 +147,16 @@
                         <option value="ألبان">ألبان وأجبان</option>
                         <option value="زيوت">زيوت وسمن</option>
                         <option value="مشروبات">مشروبات</option>
-                        <!-- الأقسام الجديدة -->
                         <option value="بهارات">بهارات</option>
                         <option value="شبسات">شبسات</option>
                         <option value="حلويات">حلويات</option>
                         <option value="منظفات">منظفات</option>
+                        <option value="عروض">🔥 قسم العروض</option>
+                        <option value="ألعاب">🎮 شحن الألعاب الإلكترونية</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>صورة المنتج:</label>
+                    <label>صورة المنتج / البطاقة:</label>
                     <input type="file" id="pImgFile" accept="image/*">
                 </div>
                 <button type="submit" class="btn" id="saveProductBtn">حفظ المنتج</button>
@@ -168,7 +169,7 @@
         </div>
 
         <div class="card">
-            <h2>إدارة المنتجات الحالية</h2>
+            <h2>إدارة المنتجات والحالية</h2>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -225,9 +226,10 @@
                                 <strong>رقم الهاتف: ${escapeHTML(order.phone)}</strong>
                                 <small style="color:#888;">${escapeHTML(order.date)}</small>
                             </div>
-                            <p style="margin-bottom:5px;"><strong>العنوان:</strong> ${escapeHTML(order.address)}</p>
+                            <p style="margin-bottom:5px;"><strong>العنوان / منطقة التوصيل:</strong> ${escapeHTML(order.address)}</p>
+                            <p style="margin-bottom:5px;"><strong>فترة التوصيل:</strong> ${escapeHTML(order.deliveryTime || 'غير محددة')}</p>
                             <p style="margin-bottom:5px;"><strong>الطلبات:</strong> ${escapeHTML(order.items)}</p>
-                            <p style="color:var(--primary); font-weight:bold;"><strong>الإجمالي:</strong> ${escapeHTML(order.total)} ل.س</p>
+                            <p style="color:var(--primary); font-weight:bold;"><strong>الإجمالي النهائي:</strong> ${escapeHTML(order.total)} ل.س</p>
                             <button class="btn btn-danger" style="margin-top:10px;" onclick="window.deleteOrder('${docSnap.id}')">حذف الطلب</button>
                         </div>
                     `;

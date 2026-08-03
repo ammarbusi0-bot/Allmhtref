@@ -344,7 +344,7 @@
             }
         };
 
-        // إضافة منتج جديد
+        // إضافة منتج جديد (معدلة ومضمونة)
         document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -361,16 +361,28 @@
 
             try {
                 if (fileInput.files.length > 0) {
+                    // ضغط الصورة برمجياً لتسريع رفعها
+                    try {
+                        if (window.imageCompression) {
+                            const originalFile = fileInput.files[0];
+                            const options = { maxSizeMB: 0.2, maxWidthOrHeight: 800, useWebWorker: true };
+                            const compressedFile = await window.imageCompression(originalFile, options);
+                            const container = new DataTransfer();
+                            container.items.add(compressedFile);
+                            fileInput.files = container.files;
+                        }
+                    } catch (compressErr) {
+                        console.warn("تخطي الضغط:", compressErr);
+                    }
+
+                    // الاستدعاء المباشر لدالة الرفع
                     const uploadedUrl = await uploadImageToImgBB(fileInput);
                     if (uploadedUrl) {
                         imageUrl = uploadedUrl;
-                    } else {
-                        saveBtn.innerText = 'حفظ المنتج';
-                        saveBtn.disabled = false;
-                        return;
                     }
                 }
 
+                // حفظ المنتج دائماً في قاعدة البيانات
                 await addDoc(collection(db, "products"), {
                     name: String(name),
                     price: Number(price),

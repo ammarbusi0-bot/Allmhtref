@@ -38,7 +38,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (enterBtn && welcomeOverlay && bgMusic) {
         enterBtn.addEventListener("click", () => {
-            bgMusic.play().catch(err => console.log("Audio play error:", err));
+            bgMusic.play().then(() => {
+                if (musicIcon) musicIcon.className = "fa-solid fa-volume-high";
+            }).catch(err => console.log("Audio error:", err));
             welcomeOverlay.style.display = "none";
         });
     }
@@ -120,8 +122,6 @@ function displayProducts(items) {
 
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(String(p.id));
-        
-        // معالجة ظهور الصورة والتأكد من عدم اختفائها بالاعتماد على صورة افتراضية إن أخطأ الرابط
         const imageElement = (p.imageUrl && p.imageUrl.trim() !== '') 
             ? `<img src="${p.imageUrl}" alt="${p.name}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">`
             : `<i class="fa-solid fa-basket-shopping"></i>`;

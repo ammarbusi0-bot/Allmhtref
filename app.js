@@ -26,64 +26,85 @@ const db = getFirestore(app);
 
 // ===== أدوات مساعدة =====
 export function escapeHTML(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>'"]/g,
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
 
-// ===== دالة رفع الصور المضمنة والمضمونة 100% =====
-export async function uploadImageToImgBB(fileInput) {
-    if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
-    const file = fileInput.files[0];
+// ===== دالة رفع الصور محسّنة =====
+export async function uploadImageToImgBB(fileOrInput) {
+    let file = null;
+    if (fileOrInput instanceof File) {
+        file = fileOrInput;
+    } else if (fileOrInput && fileOrInput.files && fileOrInput.files[0]) {
+        file = fileOrInput.files[0];
+    } else {
+        console.error("uploadImageToImgBB: لم يتم توفير ملف صالح");
+        return null;
+    }
 
-    // 1. المحاولة الأولى: سيرفر Cloudinary المباشر
+    // 1. Cloudinary
     try {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', 'ml_default');
-
         const res = await fetch('https://api.cloudinary.com/v1_1/demo/image/upload', {
             method: 'POST',
             body: formData
         });
-
         if (res.ok) {
             const data = await res.json();
-            if (data && data.secure_url) {
-                return data.secure_url;
-            }
+            if (data && data.secure_url) return data.secure_url;
         }
     } catch (e) {
-        console.warn("جاري التجربة على السيرفر الثاني...", e);
+        console.warn("Cloudinary فشل، تجربة ImgBB...", e);
     }
 
-    // 2. المحاولة الثانية: سيرفر ImgBB بمفتاحك الخاص
+    // 2. ImgBB
     try {
         const formDataImg = new FormData();
         formDataImg.append('image', file);
         const myKey = "42b6820dc31a25d977adefc41f83aa70";
-
         const resImg = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
             method: 'POST',
             body: formDataImg
         });
-
         if (resImg.ok) {
             const dataImg = await resImg.json();
-            if (dataImg && dataImg.data && dataImg.data.url) {
-                return dataImg.data.url;
-            }
+            if (dataImg && dataImg.data && dataImg.data.url) return dataImg.data.url;
         }
     } catch (e) {
-        console.warn("جاري التحويل لرفع الصورة داخل القاعدة مباشرة...", e);
+        console.warn("ImgBB فشل، سيتم استخدام Base64 مضغوط...", e);
     }
 
-    // 3. المحاولة الثالثة الاحتياطية (مضمونة 100% بدون حاجة لسيرفر خارجي):
-    // تحويل الصورة لرابط Base64 وتخزينها في قاعدة البيانات مباشرة
+    // 3. Base64 كحل احتياطي أخبي
     return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
+        reader.onloadend = () => {
+            const img = new Image();
+            img.onload = () => {
+                const maxWidth = 300;
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const resizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(resizedBase64);
+            };
+            img.onerror = () => {
+                alert('❌ فشل قراءة ملف الصورة من جهازك');
+                resolve(null);
+            };
+            img.src = reader.result;
+        };
         reader.onerror = () => {
             alert('❌ فشل قراءة ملف الصورة من جهازك');
             resolve(null);
@@ -154,7 +175,7 @@ export function displayProducts(items) {
                 <div class="product-img">${imageElement}</div>
                 <div class="product-info">
                     <div class="product-title">${escapeHTML(p.name)}</div>
-                    <div class="product-price">${Number(p.price)} ل.س</div>
+                    <div class="product-price">${escapeHTML(p.price)} ل.س</div>
                 </div>
                 <button class="btn-add-cart" onclick="window.addToCart('${p.id}')">+ أضف للسلة</button>
             </div>
@@ -165,7 +186,7 @@ export function displayProducts(items) {
 export function applyFilters() {
     let filtered = globalProducts;
     if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
-    if (currentSearch.trim() !== '') filtered = filtered.filter(p => p.name.toLowerCase().includes(currentSearch.toLowerCase()));
+    if (currentSearch.trim() !== '') filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(currentSearch.toLowerCase()));
     displayProducts(filtered);
 }
 
@@ -182,7 +203,11 @@ export function filterBySearch(queryStr) {
 }
 
 export function getFavorites() {
-    return JSON.parse(localStorage.getItem('alukhowah_favs') || '[]');
+    try {
+        return JSON.parse(localStorage.getItem('alukhowah_favs') || '[]');
+    } catch (e) {
+        return [];
+    }
 }
 
 export function toggleFavorite(id) {
@@ -198,7 +223,7 @@ export function addToCart(id) {
     if (!product) return;
     const idx = cart.findIndex(item => String(item.id) === String(id));
     if (idx > -1) cart[idx].qty += 1;
-    else cart.push({ ...product, price: Number(product.price), qty: 1 });
+    else cart.push({ ...product, price: Number(product.price) || 0, qty: 1 });
     updateCartBadge();
 }
 

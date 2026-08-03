@@ -366,6 +366,12 @@ export function initMainPage() {
     window.filterByCategory = filterByCategory;
     window.filterBySearch = filterBySearch;
     window.uploadImageToImgBB = uploadImageToImgBB;
+    
+    // دالة فتح مودال المعلومات
+    window.toggleInfoModal = function() {
+        const modal = document.getElementById('infoModal');
+        if (modal) modal.classList.toggle('open');
+    };
 }
 
 export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp };

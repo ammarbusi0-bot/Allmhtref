@@ -28,7 +28,6 @@
             padding: 20px 10px 80px 10px;
         }
 
-        /* نافذة تسجيل الدخول بكلمة السر */
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -56,7 +55,7 @@
         .admin-container {
             max-width: 800px;
             margin: 0 auto;
-            display: none; /* مخفي لحين إدخال كلمة المرور */
+            display: none;
         }
 
         h1, h2 {
@@ -152,7 +151,6 @@
 </head>
 <body>
 
-    <!-- شاشة إدخال كلمة سر المدير -->
     <div id="loginOverlay">
         <div class="login-box">
             <h2><i class="fa-solid fa-lock"></i> دخول المسؤول</h2>
@@ -224,7 +222,13 @@
     <script type="module">
         import { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp } from './app.js';
 
-        // التحقق من كلمة السر (كلمة السر الافتراضية 123456)
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
         window.checkAdminPassword = function() {
             const pass = document.getElementById('adminPassInput').value;
             if (pass === "123456") {
@@ -251,12 +255,12 @@
                     return `
                         <div class="order-card">
                             <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                                <strong>رقم الهاتف: ${order.phone}</strong>
-                                <small style="color:#888;">${order.date || ''}</small>
+                                <strong>رقم الهاتف: ${escapeHTML(order.phone)}</strong>
+                                <small style="color:#888;">${escapeHTML(order.date || '')}</small>
                             </div>
-                            <p style="margin-bottom:5px;"><strong>العنوان:</strong> ${order.address}</p>
-                            <p style="margin-bottom:5px;"><strong>الطلبات:</strong> ${order.items}</p>
-                            <p style="color:var(--primary); font-weight:bold;"><strong>الإجمالي:</strong> ${order.total} ل.س</p>
+                            <p style="margin-bottom:5px;"><strong>العنوان:</strong> ${escapeHTML(order.address)}</p>
+                            <p style="margin-bottom:5px;"><strong>الطلبات:</strong> ${escapeHTML(order.items)}</p>
+                            <p style="color:var(--primary); font-weight:bold;"><strong>الإجمالي:</strong> ${escapeHTML(order.total)} ل.س</p>
                             <button class="btn btn-danger" style="margin-top:10px;" onclick="deleteOrder('${docSnap.id}')">حذف الطلب</button>
                         </div>
                     `;
@@ -275,15 +279,15 @@
                 adminTable.innerHTML = snapshot.docs.map(docSnap => {
                     const p = docSnap.data();
                     const imgTag = (p.imageUrl && p.imageUrl.trim() !== '') 
-                        ? `<img src="${p.imageUrl}" class="product-img-preview" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">` 
+                        ? `<img src="${escapeHTML(p.imageUrl)}" class="product-img-preview" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">` 
                         : `<i class="fa-solid fa-basket-shopping"></i>`;
 
                     return `
                         <tr>
                             <td>${imgTag}</td>
-                            <td>${p.name}</td>
-                            <td>${p.price} ل.س</td>
-                            <td>${p.category}</td>
+                            <td>${escapeHTML(p.name)}</td>
+                            <td>${escapeHTML(p.price)} ل.س</td>
+                            <td>${escapeHTML(p.category)}</td>
                             <td><button class="btn btn-danger" onclick="deleteProduct('${docSnap.id}')">حذف</button></td>
                         </tr>
                     `;
@@ -311,7 +315,7 @@
             }
         };
 
-        document.getElementById('addProductForm').addEventListener('submit', async function(e) {
+        document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const saveBtn = document.getElementById('saveProductBtn');

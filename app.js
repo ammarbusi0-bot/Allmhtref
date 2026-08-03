@@ -32,7 +32,7 @@ export function escapeHTML(str) {
     );
 }
 
-// ===== دالة رفع الصور (ImgBB ثم Base64 احتياطي) =====
+// ===== دالة رفع الصور (ImgBB ثم Base64 مضغوط جداً) =====
 export async function uploadImageToImgBB(fileOrInput) {
     let file = null;
     if (fileOrInput instanceof File) {
@@ -41,37 +41,36 @@ export async function uploadImageToImgBB(fileOrInput) {
         file = fileOrInput.files[0];
     } else {
         console.error("uploadImageToImgBB: لم يتم توفير ملف صالح");
-        return null;
+        return ''; // سلسلة فارغة بدلاً من null
     }
 
-    // 1. محاولة الرفع إلى ImgBB باستخدام المفتاح
+    // 1. محاولة ImgBB
     try {
         const formDataImg = new FormData();
         formDataImg.append('image', file);
-        const myKey = "42b6820dc31a25d977adefc41f83aa70"; // مفتاحك الخاص
-
+        const myKey = "42b6820dc31a25d977adefc41f83aa70";
         const resImg = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
             method: 'POST',
             body: formDataImg
         });
-
         if (resImg.ok) {
             const dataImg = await resImg.json();
             if (dataImg && dataImg.data && dataImg.data.url) {
-                return dataImg.data.url; // نجح الرفع إلى ImgBB
+                return dataImg.data.url;
             }
         }
     } catch (e) {
-        console.warn("فشل الرفع إلى ImgBB، سيتم استخدام Base64:", e);
+        console.warn("فشل ImgBB، سيتم استخدام Base64 مضغوط...", e);
     }
 
-    // 2. الحل الاحتياطي: تحويل الصورة إلى Base64 مع تصغير الأبعاد
+    // 2. الحل الاحتياطي: Base64 مع ضغط قوي جداً
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
             const img = new Image();
             img.onload = () => {
-                const maxWidth = 300;
+                // تصغير الأبعاد إلى 200px عرض وجودة 60% لضمان حجم أقل من 1MB
+                const maxWidth = 200;
                 let width = img.width;
                 let height = img.height;
                 if (width > maxWidth) {
@@ -83,18 +82,18 @@ export async function uploadImageToImgBB(fileOrInput) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                const base64 = canvas.toDataURL('image/jpeg', 0.6);
                 resolve(base64);
             };
             img.onerror = () => {
                 alert('❌ فشل معالجة الصورة. تأكد من أن الملف صورة صالحة.');
-                resolve(null);
+                resolve(''); // سلسلة فارغة عند الفشل
             };
             img.src = reader.result;
         };
         reader.onerror = () => {
             alert('❌ فشل قراءة ملف الصورة من جهازك.');
-            resolve(null);
+            resolve('');
         };
         reader.readAsDataURL(file);
     });
@@ -150,8 +149,9 @@ export function displayProducts(items) {
     const favs = getFavorites();
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(String(p.id));
-        const imageElement = (p.imageUrl && String(p.imageUrl).trim() !== '') ?
-            `<img src="${escapeHTML(p.imageUrl)}" alt="${escapeHTML(p.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` +
+        const imageUrl = p.imageUrl || ''; // ضمان عدم وجود null
+        const imageElement = (imageUrl && String(imageUrl).trim() !== '') ?
+            `<img src="${escapeHTML(imageUrl)}" alt="${escapeHTML(p.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` +
             `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:50px; color:#aaa;"></i>` :
             `<i class="fa-solid fa-basket-shopping" style="font-size:50px; color:#aaa;"></i>`;
         return `

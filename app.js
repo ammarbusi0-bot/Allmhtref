@@ -185,15 +185,21 @@ export function showReferralCode() {
     const container = document.getElementById('referralContainer');
     if (container) {
         container.innerHTML = `
-            <div style="background:#f0f0f0;padding:10px;border-radius:8px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
                 <div>
                     <span style="font-weight:bold;">🎁 كود الخصم: </span>
-                    <strong style="font-size:18px;color:#ff6b6b;">${code}</strong>
+                    <strong style="font-size:20px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg);padding:4px 12px;border-radius:6px;">${code}</strong>
                 </div>
-                <button onclick="window.copyReferralCode()" style="background:#4CAF50;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">
-                    <i class="fa-regular fa-copy"></i> نسخ
-                </button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="window.copyReferralCode()" style="background:#4CAF50;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">
+                        <i class="fa-regular fa-copy"></i> نسخ
+                    </button>
+                    <button onclick="window.shareReferral()" style="background:#25D366;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">
+                        <i class="fa-brands fa-whatsapp"></i> مشاركة
+                    </button>
+                </div>
             </div>
+            <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على 2% خصم لأول طلب فوق 100 ليرة</p>
         `;
     }
 }
@@ -205,25 +211,16 @@ export function copyReferralCode() {
     });
 }
 
+export function shareReferral() {
+    const code = getMyReferralCode();
+    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على 2% خصم: ${code}\n📱 ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+}
+
 export function initReferralSystem() {
     handleReferral();
     showReferralCode();
 }
-
-// ===== أزرار المشاركة =====
-const shareButtonsHTML = `
-<div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;">
-    <button onclick="window.shareProduct('whatsapp', this.closest('.product-card')?.querySelector('.product-title')?.textContent || 'منتج', this.closest('.product-card')?.querySelector('.product-price')?.textContent || '')" style="background:none;border:none;font-size:18px;cursor:pointer;">
-        <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
-    </button>
-    <button onclick="window.shareProduct('facebook', this.closest('.product-card')?.querySelector('.product-title')?.textContent || 'منتج', this.closest('.product-card')?.querySelector('.product-price')?.textContent || '')" style="background:none;border:none;font-size:18px;cursor:pointer;">
-        <i class="fa-brands fa-facebook" style="color:#1877F2;"></i>
-    </button>
-    <button onclick="window.shareProduct('instagram', this.closest('.product-card')?.querySelector('.product-title')?.textContent || 'منتج', this.closest('.product-card')?.querySelector('.product-price')?.textContent || '')" style="background:none;border:none;font-size:18px;cursor:pointer;">
-        <i class="fa-brands fa-instagram" style="color:#E4405F;"></i>
-    </button>
-</div>
-`;
 
 // ===== دالة عرض المنتجات (معدلة) =====
 export function displayProducts(items) {
@@ -248,6 +245,21 @@ export function displayProducts(items) {
         const originalPrice = Number(p.price) || 0;
         const finalPrice = discount > 0 ? originalPrice - (originalPrice * discount / 100) : originalPrice;
 
+        // أزرار المشاركة داخل كل منتج
+        const shareBtns = `
+            <div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;justify-content:center;">
+                <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                    <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
+                </button>
+                <button onclick="window.shareProduct('facebook', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                    <i class="fa-brands fa-facebook" style="color:#1877F2;"></i>
+                </button>
+                <button onclick="window.shareProduct('instagram', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                    <i class="fa-brands fa-instagram" style="color:#E4405F;"></i>
+                </button>
+            </div>
+        `;
+
         return `
             <div class="product-card">
                 ${discount > 0 ? `<span class="discount-badge">-${discount}%</span>` : ''}
@@ -262,7 +274,7 @@ export function displayProducts(items) {
                         ${Math.round(finalPrice)} Lt
                     </div>
                 </div>
-                ${shareButtonsHTML}
+                ${shareBtns}
                 <button class="btn-add-cart" onclick="window.addToCart('${p.id}')">+ أضف للسلة</button>
             </div>
         `;
@@ -561,7 +573,21 @@ export function initMainPage() {
     window.toggleInfoModal = toggleInfoModal;
     window.shareProduct = shareProduct;
     window.copyReferralCode = copyReferralCode;
+    window.shareReferral = shareReferral;
     window.getMyReferralCode = getMyReferralCode;
+}
+
+export function initProductsListener() {
+    const grid = document.getElementById('productsGrid');
+    if (!grid) return;
+    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+        globalProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        applyFilters();
+    }, (error) => {
+        console.error("خطأ جلب المنتجات:", error);
+        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:red;">تعذر تحميل المنتجات.</p>';
+    });
 }
 
 export { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp };

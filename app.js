@@ -1,11 +1,10 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
     getFirestore,
     collection,
     addDoc,
     onSnapshot,
-    doc,
-    deleteDoc,
     query,
     orderBy,
     serverTimestamp
@@ -36,6 +35,12 @@ export function escapeHTML(str) {
 export async function uploadImageToImgBB(fileInput) {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
     const file = fileInput.files[0];
+    
+    if (file.size > 5 * 1024 * 1024) {
+        alert('حجم الصورة كبير جداً، يرجى اختيار صورة أقل من 5 ميجابايت.');
+        return null;
+    }
+
     const formData = new FormData();
     formData.append('image', file);
     try {
@@ -103,7 +108,7 @@ export function displayProducts(items) {
     const favs = getFavorites();
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(String(p.id));
-        const imageElement = (p.imageUrl && p.imageUrl.trim() !== '') ?
+        const imageElement = (p.imageUrl && String(p.imageUrl).trim() !== '') ?
             `<img src="${escapeHTML(p.imageUrl)}" alt="${escapeHTML(p.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` +
             `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:50px; color:#aaa;"></i>` :
             `<i class="fa-solid fa-basket-shopping" style="font-size:50px; color:#aaa;"></i>`;
@@ -315,10 +320,12 @@ export function initMainPage() {
     initProductsListener();
     initCheckoutForm();
 
+    // ربط كافة الدوال بالنطاق العام window لضمان عمل الأحداث المُستدعاة من HTML
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.removeFromCart = removeFromCart;
     window.toggleCartModal = toggleCartModal;
     window.filterByCategory = filterByCategory;
     window.filterBySearch = filterBySearch;
+    window.uploadImageToImgBB = uploadImageToImgBB;
 }

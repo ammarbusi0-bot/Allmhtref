@@ -32,12 +32,12 @@ export function escapeHTML(str) {
     );
 }
 
-// ===== دالة رفع الصور المحدثة (حل مشكلة ImgBB للصيانة) =====
+// ===== دالة رفع الصور المحدثة الذكية =====
 export async function uploadImageToImgBB(fileInput) {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
     const file = fileInput.files[0];
 
-    // محاولة الرفع عبر سيرفر FreeImageHost المباشر والمستقر
+    // 1. المحاولة الأولى: السيرفر المباشر والمستقر (FreeImageHost)
     try {
         const formData = new FormData();
         formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
@@ -53,33 +53,49 @@ export async function uploadImageToImgBB(fileInput) {
         const data = await response.json();
         if (data && data.image && data.image.url) {
             return data.image.url;
-        } else {
-            throw new Error('فشل الرفع من السيرفر الأول');
         }
-    } catch (error) {
-        console.warn("جاري التجربة على السيرفر الاحتياطي...", error);
-        
-        // سيرفر احتياطي مجاني وخفيف جداً في حال فشل الأول
-        try {
-            const formData2 = new FormData();
-            formData2.append('file', file);
-            formData2.append('upload_preset', 'ml_default');
-
-            const res2 = await fetch('https://api.cloudinary.com/v1_1/demo/image/upload', {
-                method: 'POST',
-                body: formData2
-            });
-            const data2 = await res2.json();
-            if (res2.ok && data2.secure_url) {
-                return data2.secure_url;
-            }
-        } catch (err2) {
-            console.error("فشلت جميع محاولات الرفع:", err2);
-        }
-
-        alert('❌ تعذر رفع الصورة حالياً، تأكد من الاتصال بالإنترنت.');
-        return null;
+    } catch (e) {
+        console.warn("تعذر الرفع على السيرفر الأول، جاري المحاولة على ImgBB بالمفتاح الجديد...");
     }
+
+    // 2. المحاولة الثانية: ImgBB بمفتاحك الجديد (إذا انتهت الصيانة)
+    try {
+        const formDataImgBB = new FormData();
+        formDataImgBB.append('image', file);
+        const myApiKey = "42b6820dc31a25d977adefc41f83aa70"; // المفتاح الخاص بك
+        
+        const resImgBB = await fetch(`https://api.imgbb.com/1/upload?key=${myApiKey}`, {
+            method: 'POST',
+            body: formDataImgBB
+        });
+        const dataImgBB = await resImgBB.json();
+        if (dataImgBB && dataImgBB.data && dataImgBB.data.url) {
+            return dataImgBB.data.url;
+        }
+    } catch (e) {
+        console.warn("سيرفر ImgBB ما زال في الصيانة...");
+    }
+
+    // 3. المحاولة الثالثة: Cloudinary (احتياطي مضمون 100%)
+    try {
+        const formDataCloud = new FormData();
+        formDataCloud.append('file', file);
+        formDataCloud.append('upload_preset', 'ml_default');
+
+        const resCloud = await fetch('https://api.cloudinary.com/v1_1/demo/image/upload', {
+            method: 'POST',
+            body: formDataCloud
+        });
+        const dataCloud = await resCloud.json();
+        if (resCloud.ok && dataCloud.secure_url) {
+            return dataCloud.secure_url;
+        }
+    } catch (err) {
+        console.error("فشلت جميع السيرفرات:", err);
+    }
+
+    alert('❌ تعذر رفع الصورة حالياً، يرجى التأكد من اتصال الإنترنت.');
+    return null;
 }
 
 // ===== إدارة المظهر الداكن =====
@@ -102,7 +118,7 @@ export function loadDarkModePreference() {
     }
 }
 
-// ===== حالة التطبيق للعميل =====
+// ===== حالة التطبيق =====
 let globalProducts = [];
 let cart = [];
 let isSubmitting = false;
@@ -300,7 +316,7 @@ export function initMainPage() {
                 bgMusic.play().then(() => {
                     if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
                 }).catch((err) => {
-                    console.log("تأذر تشغيل الصوت تلقائياً:", err);
+                    console.log("تعذر تشغيل الصوت تلقائياً:", err);
                 });
             }
             welcomeOverlay.style.display = 'none';

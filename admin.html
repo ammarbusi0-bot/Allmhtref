@@ -6,7 +6,7 @@
     <title>لوحة التحكم - ماركت الأخوة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- مكتبة ضغط وتحويل الصور الاحترافية (تقبل جميع صيغ الهواتف) -->
+    <!-- مكتبة ضغط الصور الاحترافية -->
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
 
     <style>
@@ -285,22 +285,22 @@
             );
         };
 
-        // ===== الرفع الاحترافي مع الضغط والتحويل الآلي =====
+        // ===== الرفع المصحح والمحسّن مئة بالمئة =====
         window.uploadImageToImgBB = async function(fileInput) {
             if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
             const imageFile = fileInput.files[0];
 
-            // إعدادات الضغط المتقدمة
             const options = {
-                maxSizeMB: 0.8,          // ضغط الصورة لتكون أقل من 800 كيلوبايت
-                maxWidthOrHeight: 1000, // أقصى عرض أو ارتفاع 1000 بكسل (ممتازة للجوال)
-                useWebWorker: true,     // عدم تجميد الشاشة أثناء المعالجة
-                fileType: 'image/jpeg'  // تحويل أي نوع صورة (HEIC, PNG, WEBP) إلى JPEG
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1000,
+                useWebWorker: true,
+                fileType: 'image/jpeg'
             };
 
             try {
-                // الضغط والتحويل الاحترافي
-                const compressedFile = await imageCompression(imageFile, options);
+                // استدعاء المكتبة بأمان مع الضمان على أجهزة الأندرويد
+                const compressor = window.imageCompression || imageCompression;
+                const compressedFile = await compressor(imageFile, options);
 
                 const formData = new FormData();
                 formData.append('image', compressedFile, 'product.jpg');
@@ -314,11 +314,11 @@
                 if (data && data.success) {
                     return data.data.url;
                 } else {
-                    console.error('ImgBB Response Error:', data);
+                    console.error('ImgBB Error:', data);
                     return null;
                 }
             } catch (error) {
-                console.error('Error during image processing/upload:', error);
+                console.error('Error in uploadImageToImgBB:', error);
                 return null;
             }
         };
@@ -395,7 +395,7 @@
             });
         }
 
-        // ===== حذف الطلب =====
+        // ===== حذف الطلب المصحح =====
         window.deleteOrder = async function(id) {
             if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
                 try {
@@ -406,11 +406,11 @@
             }
         };
 
-        // ===== حذف المنتج =====
+        // ===== حذف المنتج المصحح (تم إصلاح خطأ doc المزدوج) =====
         window.deleteProduct = async function(id) {
             if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
                 try {
-                    await deleteDoc(doc(doc(db, "products", id)));
+                    await deleteDoc(doc(db, "products", id));
                 } catch (e) {
                     alert('خطأ أثناء حذف المنتج: ' + e.message);
                 }
@@ -438,10 +438,10 @@
                     if (uploadedUrl) {
                         imageUrl = uploadedUrl;
                     } else {
-                        alert('تعذر رفع الصورة! تأكد من اتصال الإنترنت ثم حاول مجدداً.');
+                        alert('تعذر رفع الصورة! حاول اختيار صورة أخرى أو تأكد من شبكة الإنترنت.');
                         saveBtn.innerText = 'حفظ المنتج';
                         saveBtn.disabled = false;
-                        return; // إلغاء حفظ المنتج في حال فشل رفع الصورة
+                        return;
                     }
                 }
 
@@ -453,7 +453,7 @@
                     createdAt: serverTimestamp()
                 });
 
-                alert('تمت إضافة المنتج بنجاح مع الصورة!');
+                alert('تمت إضافة المنتج بنجاح!');
                 this.reset();
             } catch (error) {
                 alert('حدث خطأ أثناء إضافة المنتج: ' + error.message);

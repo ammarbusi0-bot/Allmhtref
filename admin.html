@@ -1,3 +1,9 @@
+                saveBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6,7 +12,6 @@
     <title>لوحة التحكم - ماركت الأخوة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* نفس الستايل السابق مع إضافات بسيطة */
         :root {
             --primary: #f27a1a;
             --bg: #f5f5f5;
@@ -71,7 +76,7 @@
     <div class="admin-container" id="adminMainContent">
         <h1><i class="fa-solid fa-user-gear"></i> لوحة إدارة المتجر</h1>
 
-        <!-- إضافة منتج جديد (بها حقل الخصم) -->
+        <!-- إضافة منتج جديد (مع نسبة الخصم) -->
         <div class="card">
             <h2>إضافة منتج جديد</h2>
             <form id="addProductForm">
@@ -136,8 +141,7 @@
             db, collection, addDoc, onSnapshot, doc, deleteDoc, 
             query, orderBy, serverTimestamp, escapeHTML, 
             uploadImageToImgBB, toggleDarkMode, loadDarkModePreference,
-            // دوال الأقسام الجديدة
-            addCategoryToFirestore, getCategoriesListener, deleteCategory 
+            addCategoryToFirestore, getCategoriesListener, deleteCategory
         } from './app.js';
 
         loadDarkModePreference();
@@ -180,7 +184,6 @@
                             <p><strong>الطلبات:</strong> ${escapeHTML(order.items)}</p>
                             <p><strong>الإجمالي:</strong> ${escapeHTML(order.total)} ل.س</p>
                             <p><strong>التوصيل:</strong> ${escapeHTML(order.deliveryType || 'غير محدد')} - ${escapeHTML(order.deliveryCost || '0')} ل.س</p>
-                            <p><strong>وقت التوصيل المطلوب:</strong> ${escapeHTML(order.deliveryTime || 'غير محدد')}</p>
                             <button class="btn btn-danger" onclick="window.deleteOrder('${docSnap.id}')">حذف الطلب</button>
                         </div>
                     `;
@@ -230,10 +233,13 @@
                 `).join('');
             }
 
-            // جلب الأقسام
+            // تعريف دالة الحذف قبل استخدامها في renderCategories
+            window.deleteCategoryFirestore = async (id) => {
+                if (confirm('حذف هذا القسم؟')) await deleteCategory(id);
+            };
+
             getCategoriesListener((categories) => {
                 renderCategories(categories);
-                // تحديث قائمة الأقسام في نموذج المنتج
                 const select = document.getElementById('pCategory');
                 if (select) {
                     select.innerHTML = categories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('');
@@ -250,10 +256,6 @@
                     alert('خطأ: ' + e.message);
                 }
             });
-
-            window.deleteCategoryFirestore = async (id) => {
-                if (confirm('حذف هذا القسم؟')) await deleteCategory(id);
-            };
         }
 
         window.deleteOrder = async (id) => {

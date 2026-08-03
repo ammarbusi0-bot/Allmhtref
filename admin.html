@@ -220,10 +220,11 @@
     </div>
 
     <script type="module">
-        import { db, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp } from './app.js';
+        import { db } from './app.js';
+        import { collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         function escapeHTML(str) {
-            if (!str) return '';
+            if (str === null || str === undefined) return '';
             return String(str).replace(/[&<>'"]/g, 
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
             );
@@ -251,12 +252,12 @@
                 }
 
                 ordersContainer.innerHTML = snapshot.docs.map(docSnap => {
-                    const order = docSnap.data();
+                    const order = docSnap.data() || {};
                     return `
                         <div class="order-card">
                             <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
                                 <strong>رقم الهاتف: ${escapeHTML(order.phone)}</strong>
-                                <small style="color:#888;">${escapeHTML(order.date || '')}</small>
+                                <small style="color:#888;">${escapeHTML(order.date)}</small>
                             </div>
                             <p style="margin-bottom:5px;"><strong>العنوان:</strong> ${escapeHTML(order.address)}</p>
                             <p style="margin-bottom:5px;"><strong>الطلبات:</strong> ${escapeHTML(order.items)}</p>
@@ -277,9 +278,10 @@
                 }
 
                 adminTable.innerHTML = snapshot.docs.map(docSnap => {
-                    const p = docSnap.data();
-                    const imgTag = (p.imageUrl && p.imageUrl.trim() !== '') 
-                        ? `<img src="${escapeHTML(p.imageUrl)}" class="product-img-preview" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">` 
+                    const p = docSnap.data() || {};
+                    const imgUrlStr = String(p.imageUrl || '');
+                    const imgTag = (imgUrlStr && imgUrlStr.trim() !== '') 
+                        ? `<img src="${escapeHTML(imgUrlStr)}" class="product-img-preview" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fa-solid fa-basket-shopping\'></i>';">` 
                         : `<i class="fa-solid fa-basket-shopping"></i>`;
 
                     return `
@@ -330,15 +332,15 @@
             let imageUrl = '';
 
             try {
-                if (fileInput.files.length > 0 && window.uploadImageToImgBB) {
+                if (fileInput.files.length > 0 && typeof window.uploadImageToImgBB === 'function') {
                     imageUrl = await window.uploadImageToImgBB(fileInput) || '';
                 }
 
                 await addDoc(collection(db, "products"), {
-                    name: name,
-                    price: price,
-                    category: category,
-                    imageUrl: imageUrl,
+                    name: String(name),
+                    price: Number(price),
+                    category: String(category),
+                    imageUrl: String(imageUrl),
                     createdAt: serverTimestamp()
                 });
 

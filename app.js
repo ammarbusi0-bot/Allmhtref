@@ -311,9 +311,18 @@ export function toggleFavorite(id) {
     applyFilters();
 }
 
+// ===== إضافة منتج للسلة مع معالجة شحن الألعاب =====
 export function addToCart(id) {
     const product = globalProducts.find(p => String(p.id) === String(id));
     if (!product) return;
+    
+    // إذا كان المنتج من قسم شحن الألعاب - تحويل مباشر للواتساب
+    if (product.category === 'شحن ألعاب') {
+        redirectToWhatsApp(product);
+        return;
+    }
+    
+    // المنتجات العادية تضاف للسلة
     const idx = cart.findIndex(item => String(item.id) === String(id));
     if (idx > -1) {
         cart[idx].qty += 1;
@@ -324,6 +333,23 @@ export function addToCart(id) {
         cart.push({ ...product, price: finalPrice, discount, qty: 1 });
     }
     updateCartBadge();
+}
+
+// ===== تحويل شحن الألعاب إلى واتساب مع رقم عشوائي =====
+function redirectToWhatsApp(product) {
+    const numbers = ['905511455598', '905385844122', '905511591245'];
+    const randomNumber = numbers[Math.floor(Math.random() * numbers.length)];
+    
+    const discount = product.discount ? Number(product.discount) : 0;
+    const basePrice = Number(product.price) || 0;
+    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+    
+    const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${finalPrice} ل.س\nالرجاء إرسال تفاصيل الدفع`;
+    
+    window.open(`https://wa.me/${randomNumber}?text=${encodeURIComponent(message)}`, '_blank');
+    
+    // رسالة تأكيد للمستخدم
+    alert('✅ تم تحويلك إلى واتساب لإتمام عملية شحن اللعبة');
 }
 
 export function changeQty(id, delta) {

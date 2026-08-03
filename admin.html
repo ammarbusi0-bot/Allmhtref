@@ -16,7 +16,6 @@
             --input-bg: #f0f0f0;
             --shadow: rgba(0,0,0,0.05);
         }
-
         body.dark {
             --bg: #1a1a1a;
             --card-bg: #2d2d2d;
@@ -25,21 +24,13 @@
             --input-bg: #3a3a3a;
             --shadow: rgba(0,0,0,0.3);
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
             background-color: var(--bg);
             color: var(--text);
             padding: 20px 10px 80px 10px;
             transition: background 0.3s, color 0.3s;
         }
-
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -50,7 +41,6 @@
             align-items: center;
             padding: 20px;
         }
-
         .login-box {
             background: var(--card-bg);
             padding: 30px;
@@ -61,7 +51,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             transition: background 0.3s;
         }
-
         .login-box h2 { margin-bottom: 15px; color: var(--primary); }
         .login-box input {
             width: 100%;
@@ -73,18 +62,12 @@
             color: var(--text);
             transition: background 0.3s, border 0.3s, color 0.3s;
         }
-
         .admin-container {
             max-width: 800px;
             margin: 0 auto;
             display: none;
         }
-
-        h1, h2 {
-            margin-bottom: 15px;
-            color: var(--primary);
-        }
-
+        h1, h2 { margin-bottom: 15px; color: var(--primary); }
         .card {
             background: var(--card-bg);
             border-radius: 10px;
@@ -94,18 +77,8 @@
             box-shadow: 0 2px 5px var(--shadow);
             transition: background 0.3s, border 0.3s, box-shadow 0.3s;
         }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
         .form-group input, .form-group select {
             width: 100%;
             padding: 10px;
@@ -116,7 +89,6 @@
             font-size: 14px;
             transition: background 0.3s, border 0.3s, color 0.3s;
         }
-
         .btn {
             background: var(--primary);
             color: white;
@@ -129,25 +101,19 @@
             width: 100%;
             transition: background 0.3s;
         }
-
         .btn-danger {
             background: var(--danger);
             padding: 5px 10px;
             font-size: 12px;
             width: auto;
         }
-
-        .table-responsive {
-            overflow-x: auto;
-        }
-
+        .table-responsive { overflow-x: auto; }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
             background: var(--card-bg);
         }
-
         th, td {
             padding: 10px;
             text-align: right;
@@ -155,11 +121,7 @@
             font-size: 14px;
             transition: border 0.3s;
         }
-
-        th {
-            background: var(--input-bg);
-        }
-
+        th { background: var(--input-bg); }
         .order-card {
             border-right: 4px solid var(--primary);
             padding: 15px;
@@ -169,14 +131,12 @@
             box-shadow: 0 1px 3px var(--shadow);
             transition: background 0.3s, box-shadow 0.3s;
         }
-
         .product-img-preview {
             width: 40px;
             height: 40px;
             object-fit: cover;
             border-radius: 4px;
         }
-
         .dark-toggle {
             position: fixed;
             top: 15px;
@@ -195,14 +155,8 @@
             color: var(--text);
             transition: background 0.3s, border 0.3s, color 0.3s;
         }
-
-        .dark-toggle i {
-            transition: transform 0.3s;
-        }
-
-        body.dark .dark-toggle i {
-            transform: rotate(20deg);
-        }
+        .dark-toggle i { transition: transform 0.3s; }
+        body.dark .dark-toggle i { transform: rotate(20deg); }
     </style>
 </head>
 <body>
@@ -216,7 +170,7 @@
             <h2><i class="fa-solid fa-lock"></i> دخول المسؤول</h2>
             <p style="font-size: 13px; color: #666; margin-bottom: 15px;">يرجى إدخال كلمة المرور للوصول إلى اللوحة</p>
             <input type="password" id="adminPassInput" placeholder="أدخل كلمة المرور">
-            <button class="btn" onclick="window.checkAdminPassword()">تسجيل الدخول</button>
+            <button class="btn" id="loginBtn">تسجيل الدخول</button>
         </div>
     </div>
 
@@ -307,7 +261,7 @@
         loadDarkModePreference();
 
         // ===== تسجيل الدخول =====
-        window.checkAdminPassword = function() {
+        function checkAdminPassword() {
             const pass = document.getElementById('adminPassInput').value;
             if (pass === "123456") {
                 document.getElementById('loginOverlay').style.display = 'none';
@@ -316,7 +270,17 @@
             } else {
                 alert('كلمة المرور غير صحيحة!');
             }
-        };
+        }
+
+        // ربط الزر بالدالة
+        document.getElementById('loginBtn')?.addEventListener('click', checkAdminPassword);
+
+        // السماح بالدخول بالضغط على Enter في حقل كلمة المرور
+        document.getElementById('adminPassInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                checkAdminPassword();
+            }
+        });
 
         // ===== تهيئة لوحة التحكم =====
         function initAdminDashboard() {

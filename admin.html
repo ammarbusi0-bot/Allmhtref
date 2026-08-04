@@ -202,46 +202,24 @@
         </div>
     </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
-            }
-        }
-    </script>
-
     <script type="module">
-        import { initializeApp } from "firebase/app";
         import { 
-            getFirestore, collection, addDoc, doc, deleteDoc, 
-            query, orderBy, serverTimestamp, onSnapshot, getDocs, where
-        } from "firebase/firestore";
+            db, collection, addDoc, onSnapshot, doc, deleteDoc, 
+            query, orderBy, serverTimestamp, escapeHTML, 
+            uploadImageToImgBB, toggleDarkMode, loadDarkModePreference,
+            showToast as toast
+        } from './app.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
-            authDomain: "market-30cd6.firebaseapp.com",
-            projectId: "market-30cd6",
-            storageBucket: "market-30cd6.firebasestorage.app",
-            messagingSenderId: "339341925839",
-            appId: "1:339341925839:web:c6395a82c9b88d494ec6ba",
-            measurementId: "G-F7ZK7JFWHZ"
-        };
+        // استيراد showToast بشكل منفصل (غير مصدر، لذا سنستخدم الدالة الموجودة في app.js)
+        // لكن لتوحيد الاستخدام، سنقوم بتعريف showToast محلياً إذا لم يتم تصديره.
+        // في app.js، showToast غير مصدرة، لذا سنستخدمها من خلال النافذة أو نعيد تعريفها.
+        // لكن الأفضل تصدير showToast من app.js.
+        // سنقوم بتعديل app.js لتصدير showToast أيضاً.
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        // لكن بما أننا لا نريد تغيير app.js كثيراً، سنقوم باستيرادها من النافذة بعد تحميل الصفحة.
+        // أو سنقوم بإعادة تعريفها هنا بنفس الشكل.
 
-        const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70";
-        const MAX_UPLOAD_SIZE_MB = 15;
-        const IMAGE_MAX_WIDTH = 600;
-        const WEBP_QUALITY = 0.75;
-
-        function escapeHTML(str) {
-            return str == null ? '' : String(str).replace(/[&<>'"]/g, t => ({ 
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' 
-            }[t] || t));
-        }
-
+        // سنقوم بإعادة تعريف showToast محلياً للتأكد من وجودها.
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
@@ -257,83 +235,9 @@
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
-        async function uploadImageToImgBB(file) {
-            if (!file) return '';
-            if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
-                showToast(`⚠️ حجم الصورة كبير جداً. الحد الأقصى ${MAX_UPLOAD_SIZE_MB} ميغابايت.`, 'error');
-                return '';
-            }
-
-            try {
-                const compressedBlob = await compressImageFile(file);
-                const formData = new FormData();
-                formData.append('image', compressedBlob, 'product.webp');
-                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { 
-                    method: 'POST', 
-                    body: formData 
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    return data?.data?.url || '';
-                }
-                return '';
-            } catch (e) {
-                console.error("خطأ رفع الصورة:", e);
-                showToast("⚠️ تعذر رفع الصورة. تحقق من الاتصال وحاول مجدداً.", 'error');
-                return '';
-            }
-        }
-
-        function compressImageFile(file) {
-            return new Promise(resolve => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    const img = new Image();
-                    img.onload = () => {
-                        try {
-                            const canvas = document.createElement('canvas');
-                            let { width, height } = img;
-                            if (width > IMAGE_MAX_WIDTH) { 
-                                height = Math.round((height * IMAGE_MAX_WIDTH) / width); 
-                                width = IMAGE_MAX_WIDTH; 
-                            }
-                            canvas.width = width; 
-                            canvas.height = height;
-                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                            canvas.toBlob(blob => resolve(blob || file), 'image/webp', WEBP_QUALITY);
-                        } catch (err) { 
-                            resolve(file); 
-                        }
-                    };
-                    img.onerror = () => resolve(file);
-                    img.src = e.target.result;
-                };
-                reader.onerror = () => resolve(file);
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function toggleDarkMode() {
-            const isDark = document.body.classList.toggle('dark');
-            localStorage.setItem('alukhowah_dark', isDark ? 'true' : 'false');
-            document.querySelectorAll('#adminDarkIcon, #darkModeIcon').forEach(icon => {
-                if (icon) icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-            });
-        }
-
-        function loadDarkModePreference() {
-            const isDark = localStorage.getItem('alukhowah_dark') === 'true';
-            document.body.classList.toggle('dark', isDark);
-            document.querySelectorAll('#adminDarkIcon, #darkModeIcon').forEach(icon => {
-                if (icon) icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-            });
-        }
-
-        // تهيئة المظهر الداكن
         loadDarkModePreference();
         document.getElementById('adminDarkToggle')?.addEventListener('click', toggleDarkMode);
 
-        // دالة التحقق من كلمة المرور
         function checkAdminPassword() {
             const pass = document.getElementById('adminPassInput').value;
             if (pass === "123456") {
@@ -341,7 +245,7 @@
                 document.getElementById('adminMainContent').style.display = 'block';
                 initAdminDashboard();
             } else {
-                alert('كلمة المرور غير صحيحة!');
+                showToast('❌ كلمة المرور غير صحيحة!', 'error');
             }
         }
 
@@ -350,31 +254,6 @@
             if (e.key === 'Enter') checkAdminPassword();
         });
 
-        // دالة حذف الطلب
-        window.deleteOrder = async function(id) {
-            if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
-                try {
-                    await deleteDoc(doc(db, "orders", id));
-                    showToast('✅ تم حذف الطلب بنجاح', 'success');
-                } catch (e) {
-                    alert('خطأ أثناء الحذف: ' + e.message);
-                }
-            }
-        };
-
-        // دالة حذف المنتج
-        window.deleteProduct = async function(id) {
-            if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-                try {
-                    await deleteDoc(doc(db, "products", id));
-                    showToast('✅ تم حذف المنتج بنجاح', 'success');
-                } catch (e) {
-                    alert('خطأ أثناء حذف المنتج: ' + e.message);
-                }
-            }
-        };
-
-        // تهيئة لوحة التحكم
         function initAdminDashboard() {
             // --- الطلبات ---
             const ordersContainer = document.getElementById('ordersContainer');
@@ -435,6 +314,29 @@
             });
         }
 
+        // تعريف دوال الحذف على النافذة
+        window.deleteOrder = async function(id) {
+            if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
+                try {
+                    await deleteDoc(doc(db, "orders", id));
+                    showToast('✅ تم حذف الطلب بنجاح', 'success');
+                } catch (e) {
+                    showToast('❌ خطأ أثناء الحذف: ' + e.message, 'error');
+                }
+            }
+        };
+
+        window.deleteProduct = async function(id) {
+            if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+                try {
+                    await deleteDoc(doc(db, "products", id));
+                    showToast('✅ تم حذف المنتج بنجاح', 'success');
+                } catch (e) {
+                    showToast('❌ خطأ أثناء حذف المنتج: ' + e.message, 'error');
+                }
+            }
+        };
+
         // إضافة منتج جديد
         document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -474,7 +376,7 @@
             }
         });
 
-        console.log("✅ لوحة التحكم جاهزة!");
+        console.log("✅ لوحة الإدارة جاهزة!");
     </script>
 </body>
 </html>

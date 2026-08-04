@@ -21,17 +21,7 @@ const db = getFirestore(app);
 // ==================== الأدوات المساعدة ====================
 export const escapeHTML = str => str == null ? '' : String(str).replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t));
 
-const normalizeArabicText = (text = '') => {
-    return String(text)
-        .toLowerCase()
-        .replace(/[أإآء]/g, 'ا')
-        .replace(/ة/g, 'ه')
-        .replace(/ى/g, 'ي')
-        .replace(/[\u064B-\u0652]/g, '')
-        .trim();
-};
-
-function showToast(message, type = 'info') {
+export function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
@@ -47,7 +37,10 @@ function showToast(message, type = 'info') {
 }
 
 // ==================== إدارة الصور (WebP) ====================
-const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70", MAX_UPLOAD_SIZE_MB = 15, IMAGE_MAX_WIDTH = 600, WEBP_QUALITY = 0.75;
+const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70";
+const MAX_UPLOAD_SIZE_MB = 15;
+const IMAGE_MAX_WIDTH = 600;
+const WEBP_QUALITY = 0.75;
 
 export async function uploadImageToImgBB(fileOrInput) {
     let file = fileOrInput instanceof File ? fileOrInput : fileOrInput?.files?.[0];
@@ -91,7 +84,7 @@ function compressImageFile(file) {
     });
 }
 
-// ==================== ضغط الصور القديمة (مع التحديث المباشر) ====================
+// ==================== ضغط الصور القديمة ====================
 export async function compressOldBase64Images() {
     console.log("⏳ بدء ضغط الصور القديمة...");
     let lastDoc = null, hasMore = true, totalUpdated = 0;
@@ -182,11 +175,8 @@ export function loadDarkModePreference() {
 // ==================== حالة التطبيق ====================
 let globalProducts = [], cart = loadCartFromStorage(), isSubmitting = false;
 let currentCategory = 'all', currentSearch = '', currentDeliveryType = 'inside', currentDeliveryKm = 1;
-
-// تتبع التصفح والتحميل للأقسام والرئيسية
 let lastVisibleProduct = null, isLoadingMore = false, hasMoreProducts = true;
 const PAGE_SIZE = 24;
-
 const categoryLastDocs = {};
 const categoryHasMoreMap = {};
 const categoryCache = {};
@@ -354,7 +344,6 @@ export async function filterByCategory(cat, element) {
 
 window.getCurrentCategory = () => currentCategory;
 
-// دالة جلب منتجات القسم التراكمية (Pagination for Categories)
 export async function loadProductsByCategory(category, isInitial = true) {
     if (isCategoryLoading) return;
     if (!isInitial && categoryHasMoreMap[category] === false) return;
@@ -388,8 +377,6 @@ export async function loadProductsByCategory(category, isInitial = true) {
         }
 
         let fetchedProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // ترتيب دفعة المنتجات من الأحدث للأقدم داخل الذاكرة
         fetchedProducts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
         categoryLastDocs[category] = snapshot.docs[snapshot.docs.length - 1];
@@ -397,7 +384,6 @@ export async function loadProductsByCategory(category, isInitial = true) {
             categoryHasMoreMap[category] = false;
         }
 
-        // دمج المنتجات الجديدة دون تكرار
         const existingIds = new Set(globalProducts.map(p => p.id));
         fetchedProducts.forEach(p => {
             if (!existingIds.has(p.id)) globalProducts.push(p);
@@ -717,7 +703,6 @@ export function initMainPage() {
     updateCartBadge();
     initInfiniteScroll();
 
-    // ربط الدوال بالنافذة العالمية للـ HTML
     Object.assign(window, {
         toggleFavorite, addToCart, changeQty, removeFromCart, toggleCartModal,
         filterByCategory, filterBySearch, uploadImageToImgBB, compressOldBase64Images,
@@ -727,7 +712,7 @@ export function initMainPage() {
     });
 }
 
-// ==================== تصدير العناصر المطلوبة لصفحة الإدارة ====================
+// ==================== تصدير العناصر المطلوبة للإدارة ====================
 export {
     db,
     collection,
@@ -740,6 +725,7 @@ export {
     serverTimestamp
 };
 
+// ==================== تشغيل الصفحة الرئيسية ====================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMainPage);
 } else {

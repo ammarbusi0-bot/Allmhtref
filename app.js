@@ -130,7 +130,7 @@ export function getInviteLink() {
 
 export function shareProduct(platform, productName, productPrice) {
     const code = getMyReferralCode();
-    const message = `🛍️ ${productName}\n💰 ${productPrice}\n🎁 كود خصم 10%: ${code}\n📱 ${window.location.href}`;
+    const message = `🛍️ ${productName}\n💰 ${productPrice} TL\n🎁 كود خصم 10%: ${code}\n📱 ${window.location.href}`;
     const encoded = encodeURIComponent(message);
     
     const links = {
@@ -160,7 +160,7 @@ export function handleReferral() {
         localStorage.setItem('referralPoints', JSON.stringify(points));
         
         setTimeout(() => {
-            alert('🎉 مرحباً! تم تفعيل كود الخصم 10% على طلبك الأول فوق 100 ليرة');
+            alert('🎉 مرحباً! تم تفعيل كود الخصم 10% على طلبك الأول فوق 100 TL');
         }, 500);
     }
 }
@@ -199,7 +199,7 @@ export function showReferralCode() {
                     </button>
                 </div>
             </div>
-            <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على 10% خصم لأول طلب فوق 100 ليرة</p>
+            <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على 10% خصم لأول طلب فوق 100 TL</p>
         `;
     }
 }
@@ -245,19 +245,47 @@ export function displayProducts(items) {
         const originalPrice = Number(p.price) || 0;
         const finalPrice = discount > 0 ? originalPrice - (originalPrice * discount / 100) : originalPrice;
 
+        // حالة التوفر
+        const availability = p.availability || 'متوفر';
+        let availabilityBadge = '';
+        let disableAdd = false;
+        if (availability === 'غير متوفر') {
+            availabilityBadge = '<span class="out-of-stock-badge" style="background:#e74c3c;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;display:inline-block;margin-top:4px;">❌ غير متوفر</span>';
+            disableAdd = true;
+        } else if (availability === 'محدود') {
+            availabilityBadge = '<span class="limited-badge" style="background:#f39c12;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;display:inline-block;margin-top:4px;">⚠️ محدود</span>';
+        } else {
+            availabilityBadge = '<span class="in-stock-badge" style="background:#2ecc71;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;display:inline-block;margin-top:4px;">✅ متوفر</span>';
+        }
+
+        // تاريخ التوفر (اختياري)
+        let availabilityDateText = '';
+        if (p.availabilityDate) {
+            try {
+                const dateObj = p.availabilityDate.toDate ? p.availabilityDate.toDate() : new Date(p.availabilityDate);
+                if (!isNaN(dateObj.getTime())) {
+                    availabilityDateText = `<div style="font-size:11px;color:#888;margin:2px 0;">📅 متاح من: ${dateObj.toLocaleDateString('ar-EG')}</div>`;
+                }
+            } catch(e) {}
+        }
+
         const shareBtns = `
             <div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;justify-content:center;">
-                <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
                     <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
                 </button>
-                <button onclick="window.shareProduct('facebook', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                <button onclick="window.shareProduct('facebook', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
                     <i class="fa-brands fa-facebook" style="color:#1877F2;"></i>
                 </button>
-                <button onclick="window.shareProduct('instagram', '${escapeHTML(p.name)}', '${finalPrice} Lt')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                <button onclick="window.shareProduct('instagram', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
                     <i class="fa-brands fa-instagram" style="color:#E4405F;"></i>
                 </button>
             </div>
         `;
+
+        const addButton = disableAdd ? 
+            `<button class="btn-add-cart" disabled style="opacity:0.5;cursor:not-allowed;">غير متوفر</button>` :
+            `<button class="btn-add-cart" onclick="window.addToCart('${p.id}')">+ أضف للسلة</button>`;
 
         return `
             <div class="product-card">
@@ -269,12 +297,14 @@ export function displayProducts(items) {
                 <div class="product-info">
                     <div class="product-title">${escapeHTML(p.name)}</div>
                     <div class="product-price">
-                        ${discount > 0 ? `<span class="old-price">${originalPrice} Lt</span>` : ''}
-                        ${Math.round(finalPrice)} Lt
+                        ${discount > 0 ? `<span class="old-price">${originalPrice} TL</span>` : ''}
+                        ${Math.round(finalPrice)} TL
                     </div>
+                    ${availabilityBadge}
+                    ${availabilityDateText}
                 </div>
                 ${shareBtns}
-                <button class="btn-add-cart" onclick="window.addToCart('${p.id}')">+ أضف للسلة</button>
+                ${addButton}
             </div>
         `;
     }).join('');
@@ -311,10 +341,17 @@ export function toggleFavorite(id) {
     applyFilters();
 }
 
-// ===== إضافة منتج للسلة مع معالجة شحن الألعاب =====
+// ===== إضافة منتج للسلة مع معالجة شحن الألعاب وحالة التوفر =====
 export function addToCart(id) {
     const product = globalProducts.find(p => String(p.id) === String(id));
     if (!product) return;
+    
+    // التحقق من التوفر
+    const availability = product.availability || 'متوفر';
+    if (availability === 'غير متوفر') {
+        alert('❌ هذا المنتج غير متوفر حالياً.');
+        return;
+    }
     
     // إذا كان المنتج من قسم شحن الألعاب - تحويل مباشر للواتساب
     if (product.category === 'شحن ألعاب') {
@@ -344,11 +381,10 @@ function redirectToWhatsApp(product) {
     const basePrice = Number(product.price) || 0;
     const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
     
-    const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${finalPrice} ل.س\nالرجاء إرسال تفاصيل الدفع`;
+    const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${finalPrice} TL\nالرجاء إرسال تفاصيل الدفع`;
     
     window.open(`https://wa.me/${randomNumber}?text=${encodeURIComponent(message)}`, '_blank');
     
-    // رسالة تأكيد للمستخدم
     alert('✅ تم تحويلك إلى واتساب لإتمام عملية شحن اللعبة');
 }
 
@@ -378,7 +414,6 @@ export function updateCartBadge() {
 function calculateFinalTotal() {
     const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     
-    // خصم ذكي
     let smartDiscountPercent = 0;
     if (itemsTotal >= 1000) smartDiscountPercent = 10;
     else if (itemsTotal >= 500) smartDiscountPercent = 5;
@@ -386,11 +421,9 @@ function calculateFinalTotal() {
     const smartDiscountAmount = itemsTotal * (smartDiscountPercent / 100);
     let discountedItemsTotal = itemsTotal - smartDiscountAmount;
     
-    // خصم الدعوة (يضاف للخصم الذكي)
     const referralDiscount = getReferralDiscount(discountedItemsTotal);
     discountedItemsTotal -= referralDiscount;
     
-    // تكلفة التوصيل
     let deliveryCost = 0;
     if (currentDeliveryType === 'inside') {
         deliveryCost = 100;
@@ -457,13 +490,13 @@ export function renderCartItems() {
             <div class="cart-item">
                 <div>
                     <strong>${escapeHTML(item.name)}</strong>
-                    <div style="font-size:12px; color:#666;">${item.price} Lt × ${item.qty}</div>
+                    <div style="font-size:12px; color:#666;">${item.price} TL × ${item.qty}</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <button class="qty-btn" onclick="window.changeQty('${item.id}', -1)">-</button>
                     <span style="font-weight:bold;">${item.qty}</span>
                     <button class="qty-btn" onclick="window.changeQty('${item.id}', 1)">+</button>
-                    <span style="font-weight:bold; color:var(--primary);">${itemTotal} Lt</span>
+                    <span style="font-weight:bold; color:var(--primary);">${itemTotal} TL</span>
                     <i class="fa-solid fa-trash" style="color:red; cursor:pointer;" onclick="window.removeFromCart('${item.id}')"></i>
                 </div>
             </div>
@@ -475,11 +508,11 @@ export function renderCartItems() {
         const calc = calculateFinalTotal();
         
         summaryDiv.innerHTML = `
-            <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
-            ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة (10%):</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
-            <div class="summary-line"><span>🚚 التوصيل (${currentDeliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + currentDeliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
-            <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} Lt</span></div>
+            <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} TL</span></div>
+            ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} TL</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة (10%):</span><span>-${Math.round(calc.referralDiscount)} TL</span></div>` : ''}
+            <div class="summary-line"><span>🚚 التوصيل (${currentDeliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + currentDeliveryKm + ' كم'}):</span><span>${calc.deliveryCost} TL</span></div>
+            <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} TL</span></div>
         `;
         
         const finalTotalInput = document.getElementById('finalTotal');
@@ -522,7 +555,7 @@ export function initCheckoutForm() {
                 createdAt: serverTimestamp()
             });
             
-            alert(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${Math.round(calc.finalTotal)} Lt\nسيتم التواصل معك عبر: ${phone}`);
+            alert(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${Math.round(calc.finalTotal)} TL\nسيتم التواصل معك عبر: ${phone}`);
             cart = [];
             updateCartBadge();
             renderCartItems();

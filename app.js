@@ -38,7 +38,7 @@ export function escapeHTML(str) {
     );
 }
 
-// إشعارات Toast بدلاً من alert
+// إشعارات Toast
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
@@ -58,7 +58,7 @@ function showToast(message, type = 'info') {
 }
 
 // ==================== إدارة الصور ====================
-const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70"; // يُنقل للخادم لاحقاً
+const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70";
 const MAX_UPLOAD_SIZE_MB = 15;
 const IMAGE_MAX_WIDTH = 600;
 const JPEG_QUALITY = 0.7;
@@ -210,7 +210,7 @@ let hasMoreProducts = true;
 const PAGE_SIZE = 24;
 let unsubscribeProducts = null;
 
-// التخزين المؤقت للفئات
+// تخزين مؤقت للفئات
 const categoryCache = {};
 
 // ==================== نظام الدعوة والخصم ====================
@@ -315,7 +315,10 @@ export function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
     if (!items.length) {
-        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:20px;">لا توجد منتجات متوفرة. <br><button onclick="window.loadProductsByCategory(window.currentCategory)" style="margin-top:10px; padding:8px 20px; background:var(--primary); color:white; border:none; border-radius:20px; cursor:pointer;">🔄 تحميل المنتجات</button></p>';
+        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; padding:20px;">
+            لا توجد منتجات متوفرة.
+            <br><button onclick="window.loadProductsByCategory(window.getCurrentCategory())" style="margin-top:10px; padding:8px 20px; background:var(--primary); color:white; border:none; border-radius:20px; cursor:pointer;">🔄 تحميل المنتجات</button>
+        </p>`;
         updateLoadMoreButtonVisibility(false);
         return;
     }
@@ -351,7 +354,6 @@ export function displayProducts(items) {
             } catch (e) { }
         }
 
-        // نجوم التقييم (وهمية)
         const rating = p.rating || 0;
         const starsHTML = Array.from({ length: 5 }, (_, i) => 
             `<i class="fa-star ${i < rating ? 'fa-solid' : 'fa-regular'}" style="color:#f1c40f;"></i>`
@@ -434,11 +436,13 @@ export async function filterByCategory(cat, element) {
     currentCategory = cat;
 
     if (cat !== 'all' && !categoryCache[cat] && globalProducts.filter(p => p.category === cat).length === 0) {
-        // تحميل منتجات الفئة من قاعدة البيانات
         await loadProductsByCategory(cat);
     }
     applyFilters();
 }
+
+// جعل currentCategory متاحة عالمياً بشكل ديناميكي
+window.getCurrentCategory = () => currentCategory;
 
 async function loadProductsByCategory(category) {
     showToast(`جاري تحميل منتجات ${category}...`, 'info');
@@ -446,7 +450,6 @@ async function loadProductsByCategory(category) {
         const q = query(collection(db, "products"), where("category", "==", category), orderBy("createdAt", "desc"), limit(50));
         const snapshot = await getDocs(q);
         const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // إضافتها للقائمة العامة مع تجنب التكرار
         const existingIds = new Set(globalProducts.map(p => p.id));
         products.forEach(p => {
             if (!existingIds.has(p.id)) {
@@ -471,7 +474,7 @@ export function filterBySearch(queryStr) {
     }, 250);
 }
 
-// ==================== المفضلة (تحديث موضعي) ====================
+// ==================== المفضلة ====================
 function getFavorites() {
     try { return JSON.parse(localStorage.getItem('alukhowah_favs') || '[]'); } catch { return []; }
 }
@@ -483,12 +486,10 @@ export function toggleFavorite(productId, btnElement) {
     else favs.push(productId);
     localStorage.setItem('alukhowah_favs', JSON.stringify(favs));
 
-    if (btnElement) {
-        btnElement.classList.toggle('active', !isFav);
-    }
+    if (btnElement) btnElement.classList.toggle('active', !isFav);
 }
 
-// ==================== إدارة السلة المتقدمة ====================
+// ==================== إدارة السلة ====================
 function loadCartFromStorage() {
     try { return JSON.parse(localStorage.getItem('cart') || '[]'); } catch { return []; }
 }
@@ -521,14 +522,7 @@ export function addToCart(productId) {
         const discount = Number(product.discount) || 0;
         const basePrice = Number(product.price) || 0;
         const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
-        cart.push({
-            id: product.id,
-            name: product.name,
-            price: finalPrice,
-            discount,
-            qty: 1,
-            imageUrl: product.imageUrl
-        });
+        cart.push({ id: product.id, name: product.name, price: finalPrice, discount, qty: 1, imageUrl: product.imageUrl });
     }
     saveCartToStorage();
     updateCartBadge();
@@ -538,7 +532,6 @@ export function addToCart(productId) {
 export function quickBuy(productId) {
     addToCart(productId);
     toggleCartModal();
-    // التمرير إلى نموذج الطلب
     document.getElementById('checkoutForm')?.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -597,15 +590,7 @@ function calculateFinalTotal() {
     discountedTotal -= referralDiscount;
 
     const deliveryCost = currentDeliveryType === 'inside' ? 100 : (currentDeliveryKm || 1) * 35;
-    return {
-        itemsTotal,
-        smartDiscountPercent,
-        smartDiscountAmount,
-        referralDiscount,
-        discountedItemsTotal: discountedTotal,
-        deliveryCost,
-        finalTotal: discountedTotal + deliveryCost
-    };
+    return { itemsTotal, smartDiscountPercent, smartDiscountAmount, referralDiscount, discountedItemsTotal: discountedTotal, deliveryCost, finalTotal: discountedTotal + deliveryCost };
 }
 
 // ==================== عرض السلة والمودال ====================
@@ -681,9 +666,7 @@ export function initCheckoutForm() {
 
         try {
             await addDoc(collection(db, "orders"), {
-                phone,
-                address,
-                items: itemsSummary,
+                phone, address, items: itemsSummary,
                 total: Math.round(calc.finalTotal),
                 itemsTotal: calc.itemsTotal,
                 smartDiscount: Math.round(calc.smartDiscountAmount),
@@ -716,12 +699,11 @@ export function toggleInfoModal() {
     if (modal) modal.classList.toggle('open');
 }
 
-// ==================== تحميل المنتجات الرئيسي (مع دعم زر يدوي) ====================
+// ==================== تحميل المنتجات ====================
 export async function initProductsListener() {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
 
-    // إلغاء أي اشتراك قديم
     if (unsubscribeProducts) {
         unsubscribeProducts();
         unsubscribeProducts = null;
@@ -731,9 +713,7 @@ export async function initProductsListener() {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
         const snapshot = await getDocs(q);
         globalProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (snapshot.docs.length > 0) {
-            lastVisibleProduct = snapshot.docs[snapshot.docs.length - 1];
-        }
+        if (snapshot.docs.length > 0) lastVisibleProduct = snapshot.docs[snapshot.docs.length - 1];
         hasMoreProducts = snapshot.docs.length === PAGE_SIZE;
         applyFilters();
     } catch (error) {
@@ -770,15 +750,14 @@ export async function loadMoreProducts() {
     }
 }
 
-// ==================== دوال الإدارة (لإصلاح خطأ عدم الفتح) ====================
+// ==================== دوال الإدارة ====================
 export async function deleteProduct(productId) {
     if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
         try {
             await deleteDoc(doc(db, "products", productId));
-            showToast('تم الحذف بنجاح', 'success');
-            // تحديث القائمة
             globalProducts = globalProducts.filter(p => p.id !== productId);
             applyFilters();
+            showToast('تم الحذف بنجاح', 'success');
         } catch (e) {
             showToast('فشل الحذف: ' + e.message, 'error');
         }
@@ -794,18 +773,22 @@ export async function updateProduct(productId, newData) {
     }
 }
 
-// ==================== بحث صوتي (ميزة جديدة) ====================
+// ==================== البحث الصوتي (مُصحح) ====================
 export function startVoiceSearch() {
-    if (!('webkitSpeechRecognition' in window)) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
         showToast('المتصفح لا يدعم البحث الصوتي', 'error');
         return;
     }
-    const recognition = new webkitSpeechRecognition();
+    const recognition = new SpeechRecognition();
     recognition.lang = 'ar-EG';
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        document.getElementById('searchInput').value = transcript;
-        filterBySearch(transcript);
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = transcript;
+            filterBySearch(transcript);
+        }
     };
     recognition.start();
 }
@@ -814,7 +797,6 @@ export function startVoiceSearch() {
 export function initMainPage() {
     loadDarkModePreference();
 
-    // شاشة الترحيب والموسيقى
     const enterBtn = document.getElementById('enterBtn');
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const bgMusic = document.getElementById('bgMusic');
@@ -844,18 +826,14 @@ export function initMainPage() {
         });
     }
 
-    // أزرار الوضع المظلم
-    document.querySelectorAll('.dark-toggle').forEach(btn => {
-        btn.addEventListener('click', toggleDarkMode);
-    });
+    document.querySelectorAll('.dark-toggle').forEach(btn => btn.addEventListener('click', toggleDarkMode));
 
-    // بدء تحميل المنتجات وباقي المكونات
     initProductsListener();
     initCheckoutForm();
     initReferralSystem();
     updateCartBadge();
 
-    // ربط الدوال العامة (بما فيها دوال الإدارة)
+    // ربط الدوال العالمية
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.changeQty = changeQty;
@@ -878,10 +856,10 @@ export function initMainPage() {
     window.deleteProduct = deleteProduct;
     window.updateProduct = updateProduct;
     window.startVoiceSearch = startVoiceSearch;
-    window.currentCategory = currentCategory; // هام للزر
+    window.getCurrentCategory = window.getCurrentCategory; // للإشارة فقط
 }
 
-// تشغيل التهيئة تلقائيًا عند تحميل الصفحة
+// تشغيل تلقائي
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMainPage);
 } else {

@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
     getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
-    query, where, orderBy, limit, serverTimestamp, getDocs, startAfter
+    query, where, orderBy, limit, serverTimestamp, getDocs, startAfter,
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -655,8 +656,8 @@ export async function deleteProduct(productId) {
             await deleteDoc(doc(db, "products", productId));
             globalProducts = globalProducts.filter(p => p.id !== productId);
             applyFilters();
-            showToast('تم الحذف بنجاح', 'success');
-        } catch (e) { showToast('فشل الحذف: ' + e.message, 'error'); }
+            showToast('✅ تم الحذف بنجاح', 'success');
+        } catch (e) { showToast('❌ فشل الحذف: ' + e.message, 'error'); }
     }
 }
 
@@ -666,8 +667,8 @@ export async function updateProduct(productId, newData) {
         const product = globalProducts.find(p => p.id === productId);
         if (product) Object.assign(product, newData);
         applyFilters();
-        showToast('تم التحديث بنجاح', 'success');
-    } catch (e) { showToast('فشل التحديث: ' + e.message, 'error'); }
+        showToast('✅ تم التحديث بنجاح', 'success');
+    } catch (e) { showToast('❌ فشل التحديث: ' + e.message, 'error'); }
 }
 
 // ==================== البحث الصوتي ====================
@@ -726,10 +727,21 @@ export function initMainPage() {
     });
 }
 
+// ==================== تصدير العناصر المطلوبة لصفحة الإدارة ====================
+export {
+    db,
+    collection,
+    addDoc,
+    onSnapshot,
+    doc,
+    deleteDoc,
+    query,
+    orderBy,
+    serverTimestamp
+};
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMainPage);
 } else {
     initMainPage();
 }
-
-جي اس اس معدل

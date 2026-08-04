@@ -8,13 +8,16 @@
     <style>
         :root {
             --primary: #f27a1a;
+            --primary-hover: #e06b10;
             --bg: #f5f5f5;
             --card-bg: #ffffff;
             --text: #333333;
             --border: #e6e6e6;
             --danger: #e63946;
+            --danger-hover: #c92a2a;
             --input-bg: #f0f0f0;
-            --shadow: rgba(0,0,0,0.05);
+            --shadow: 0 2px 8px rgba(0,0,0,0.05);
+            --modal-overlay: rgba(0,0,0,0.6);
         }
         body.dark {
             --bg: #1a1a1a;
@@ -22,7 +25,8 @@
             --text: #e0e0e0;
             --border: #444;
             --input-bg: #3a3a3a;
-            --shadow: rgba(0,0,0,0.3);
+            --shadow: 0 2px 8px rgba(0,0,0,0.3);
+            --modal-overlay: rgba(0,0,0,0.8);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg); color: var(--text); padding: 20px 10px 80px 10px; }
@@ -47,31 +51,35 @@
         .login-box h2 { margin-bottom: 15px; color: var(--primary); }
         .login-box input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin-bottom: 15px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             background: var(--input-bg);
             color: var(--text);
+            font-size: 16px;
         }
-        .admin-container { max-width: 900px; margin: 0 auto; display: none; }
+        .admin-container { max-width: 1100px; margin: 0 auto; display: none; }
         h1, h2, h3 { margin-bottom: 15px; color: var(--primary); }
+        h1 i, h2 i { margin-left: 8px; }
         .card {
             background: var(--card-bg);
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 20px;
             margin-bottom: 25px;
             border: 1px solid var(--border);
+            box-shadow: var(--shadow);
         }
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+        .form-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 6px; }
         .form-group input, .form-group select {
             width: 100%;
-            padding: 10px;
+            padding: 10px 12px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             background: var(--input-bg);
             color: var(--text);
+            font-size: 14px;
         }
         .btn {
             background: var(--primary);
@@ -80,36 +88,50 @@
             padding: 10px 20px;
             font-size: 15px;
             font-weight: bold;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            width: 100%;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
-        .btn-danger { background: var(--danger); padding: 5px 10px; font-size: 12px; width: auto; }
-        .btn-small { width: auto; padding: 8px 15px; font-size: 13px; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--danger); padding: 6px 12px; font-size: 13px; }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-small { padding: 8px 16px; font-size: 13px; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+        .btn-outline:hover { background: rgba(242,122,26,0.1); }
         .table-responsive { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border); font-size: 14px; }
-        th { background: var(--input-bg); }
+        th, td { padding: 12px 10px; text-align: right; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th { background: var(--input-bg); font-weight: bold; }
         .order-card {
             border-right: 4px solid var(--primary);
             padding: 15px;
             margin-bottom: 15px;
             background: var(--card-bg);
-            border-radius: 4px;
+            border-radius: 6px;
+            box-shadow: var(--shadow);
         }
-        .product-img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+        .product-img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
         .dark-toggle {
             position: fixed;
-            top: 15px; left: 15px;
+            top: 20px; left: 20px;
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 50%;
-            width: 40px; height: 40px;
+            width: 44px; height: 44px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 20px; cursor: pointer; z-index: 999;
+            font-size: 22px; cursor: pointer; z-index: 999;
             color: var(--text);
+            box-shadow: var(--shadow);
         }
-        .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+        .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
         .badge-discount { background: var(--danger); }
         .flex-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .category-tag {
@@ -127,6 +149,60 @@
         .remove-discount-check { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
         .remove-discount-check input[type="checkbox"] { width: auto; margin: 0; }
         .date-input { direction: ltr; text-align: right; }
+        .search-box {
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 35px 10px 15px;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-size: 14px;
+        }
+        .search-box i {
+            position: absolute;
+            right: 15px;
+            top: 12px;
+            color: #888;
+        }
+        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        /* مودال التعديل */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--modal-overlay);
+            z-index: 20000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 25px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .modal h2 { margin-top: 0; }
+        .modal .close-modal {
+            position: absolute;
+            top: 15px; left: 20px;
+            background: transparent;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: var(--text);
+        }
+        .modal img { max-width: 100px; border-radius: 8px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -138,8 +214,8 @@
     <div id="loginOverlay">
         <div class="login-box">
             <h2><i class="fa-solid fa-lock"></i> دخول المسؤول</h2>
-            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">يرجى إدخال كلمة المرور للوصول إلى اللوحة</p>
-            <input type="password" id="adminPassInput" placeholder="أدخل كلمة المرور">
+            <p style="font-size: 14px; color: #888; margin-bottom: 20px;">أدخل كلمة المرور للوصول إلى اللوحة</p>
+            <input type="password" id="adminPassInput" placeholder="كلمة المرور">
             <button class="btn" id="loginBtn">تسجيل الدخول</button>
         </div>
     </div>
@@ -174,7 +250,6 @@
                     </select>
                 </div>
 
-                <!-- حقل الخصم ومدة الخصم وإزالته -->
                 <div class="inline-group">
                     <div class="form-group">
                         <label>نسبة الخصم % (اختياري):</label>
@@ -190,7 +265,6 @@
                     <label for="pRemoveDiscount">🗑️ إزالة الخصم (جعله 0%)</label>
                 </div>
 
-                <!-- حالة التوفر وتاريخ التوفر الاختياري -->
                 <div class="form-group">
                     <label>حالة التوفر:</label>
                     <select id="pAvailability">
@@ -200,7 +274,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>تاريخ التوفر (اختياري - يظهر في حال عدم التوفر):</label>
+                    <label>تاريخ التوفر (اختياري):</label>
                     <input type="date" id="pAvailabilityDate" class="date-input">
                 </div>
 
@@ -221,8 +295,12 @@
         <!-- إدارة المنتجات -->
         <div class="card">
             <h2>📋 إدارة المنتجات الحالية</h2>
+            <div class="search-box">
+                <i class="fa-solid fa-search"></i>
+                <input type="text" id="productSearch" placeholder="🔍 ابحث عن منتج بالاسم أو القسم...">
+            </div>
             <div class="table-responsive">
-                <table>
+                <table id="productsTable">
                     <thead>
                         <tr>
                             <th>الصورة</th>
@@ -233,7 +311,7 @@
                             <th>التوفر</th>
                             <th>تاريخ التوفر</th>
                             <th>القسم</th>
-                            <th>إجراء</th>
+                            <th>إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="adminProductsTable">
@@ -244,9 +322,70 @@
         </div>
     </div>
 
+    <!-- مودال تعديل المنتج -->
+    <div class="modal-overlay" id="editModalOverlay">
+        <div class="modal">
+            <button class="close-modal" id="closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            <h2>✏️ تعديل المنتج</h2>
+            <form id="editProductForm">
+                <input type="hidden" id="editProductId">
+                <div class="form-group">
+                    <label>اسم المنتج:</label>
+                    <input type="text" id="editPName" required>
+                </div>
+                <div class="form-group">
+                    <label>السعر (ل.س):</label>
+                    <input type="number" id="editPPrice" required>
+                </div>
+                <div class="form-group">
+                    <label>القسم:</label>
+                    <select id="editPCategory" required>
+                        <option value="مؤن">مؤن أساسية</option>
+                        <option value="ألبان">ألبان وأجبان</option>
+                        <option value="زيوت">زيوت وسمن</option>
+                        <option value="مشروبات">مشروبات</option>
+                        <option value="بهارات">بهارات</option>
+                        <option value="شبسات">شبسات</option>
+                        <option value="حلويات">حلويات</option>
+                        <option value="منظفات">منظفات</option>
+                        <option value="شحن ألعاب">شحن ألعاب</option>
+                    </select>
+                </div>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label>نسبة الخصم %:</label>
+                        <input type="number" id="editPDiscount" min="0" max="99" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>مدة الخصم (أيام):</label>
+                        <input type="number" id="editPDiscountDuration" min="1" value="7">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>حالة التوفر:</label>
+                    <select id="editPAvailability">
+                        <option value="متوفر">✅ متوفر</option>
+                        <option value="غير متوفر">❌ غير متوفر</option>
+                        <option value="محدود">⚠️ محدود</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>تاريخ التوفر:</label>
+                    <input type="date" id="editPAvailabilityDate" class="date-input">
+                </div>
+                <div class="form-group">
+                    <label>تغيير الصورة (اختياري):</label>
+                    <input type="file" id="editPImgFile" accept="image/*">
+                    <div id="currentImagePreview" style="margin-top:8px;"></div>
+                </div>
+                <button type="submit" class="btn" id="updateProductBtn">💾 حفظ التعديلات</button>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
         import { 
-            db, collection, addDoc, onSnapshot, doc, deleteDoc, 
+            db, collection, addDoc, updateDoc, doc, deleteDoc, onSnapshot, 
             query, orderBy, serverTimestamp, escapeHTML, 
             uploadImageToImgBB, toggleDarkMode, loadDarkModePreference 
         } from './app.js';
@@ -254,13 +393,13 @@
         loadDarkModePreference();
         document.getElementById('adminDarkToggle')?.addEventListener('click', toggleDarkMode);
 
-        // ربط دوال الحذف بنطاق النافذة العامة لضمان عمل أزرار الـ onclick في الجدول بشكل سليم
+        // ربط دوال الحذف والتعديل بنطاق النافذة
         window.deleteOrder = async function(id) {
             if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
                 try {
                     await deleteDoc(doc(db, "orders", id));
                 } catch (e) {
-                    alert('خطأ أثناء الحذف: ' + e.message);
+                    alert('خطأ: ' + e.message);
                 }
             }
         };
@@ -270,9 +409,42 @@
                 try {
                     await deleteDoc(doc(db, "products", id));
                 } catch (e) {
-                    alert('خطأ أثناء حذف المنتج: ' + e.message);
+                    alert('خطأ: ' + e.message);
                 }
             }
+        };
+
+        // دالة فتح نافذة التعديل
+        window.editProduct = function(productId) {
+            const products = window.allProducts || [];
+            const product = products.find(p => p.id === productId);
+            if (!product) return alert('المنتج غير موجود');
+
+            document.getElementById('editProductId').value = product.id;
+            document.getElementById('editPName').value = product.name || '';
+            document.getElementById('editPPrice').value = product.price || 0;
+            document.getElementById('editPCategory').value = product.category || 'مؤن';
+            document.getElementById('editPDiscount').value = product.discount || 0;
+            document.getElementById('editPDiscountDuration').value = product.discountDuration || 7;
+            document.getElementById('editPAvailability').value = product.availability || 'متوفر';
+            
+            const availDate = product.availabilityDate ? 
+                (product.availabilityDate.toDate ? product.availabilityDate.toDate() : new Date(product.availabilityDate)) 
+                : null;
+            if (availDate && !isNaN(availDate.getTime())) {
+                document.getElementById('editPAvailabilityDate').value = availDate.toISOString().split('T')[0];
+            } else {
+                document.getElementById('editPAvailabilityDate').value = '';
+            }
+
+            const preview = document.getElementById('currentImagePreview');
+            if (product.imageUrl && product.imageUrl !== 'null' && product.imageUrl !== 'undefined') {
+                preview.innerHTML = `<img src="${escapeHTML(product.imageUrl)}" style="max-width:100px; border-radius:6px;" onerror="this.style.display='none'">`;
+            } else {
+                preview.innerHTML = '<span style="color:#888;">لا توجد صورة حالية</span>';
+            }
+            
+            document.getElementById('editModalOverlay').classList.add('active');
         };
 
         function checkAdminPassword() {
@@ -291,7 +463,6 @@
             if (e.key === 'Enter') checkAdminPassword();
         });
 
-        // التحكم في إظهار/إخفاء مدة الخصم عند تفعيل إزالة الخصم
         document.getElementById('pRemoveDiscount')?.addEventListener('change', function() {
             const discountInput = document.getElementById('pDiscount');
             const durationGroup = document.getElementById('discountDurationGroup');
@@ -305,11 +476,60 @@
             }
         });
 
+        // إغلاق المودال
+        document.getElementById('closeModalBtn')?.addEventListener('click', () => {
+            document.getElementById('editModalOverlay').classList.remove('active');
+        });
+        document.getElementById('editModalOverlay')?.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('editModalOverlay')) {
+                document.getElementById('editModalOverlay').classList.remove('active');
+            }
+        });
+
+        // حفظ التعديلات
+        document.getElementById('editProductForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('editProductId').value;
+            const name = document.getElementById('editPName').value.trim();
+            const price = Number(document.getElementById('editPPrice').value);
+            const category = document.getElementById('editPCategory').value;
+            let discount = Number(document.getElementById('editPDiscount').value) || 0;
+            const discountDuration = discount > 0 ? Number(document.getElementById('editPDiscountDuration').value) || 7 : 0;
+            const availability = document.getElementById('editPAvailability').value;
+            const availabilityDateVal = document.getElementById('editPAvailabilityDate').value;
+            const availabilityDate = availabilityDateVal ? new Date(availabilityDateVal) : null;
+            const fileInput = document.getElementById('editPImgFile');
+            
+            const updateBtn = document.getElementById('updateProductBtn');
+            updateBtn.innerText = 'جاري الحفظ...';
+            updateBtn.disabled = true;
+
+            try {
+                const updateData = {
+                    name, price, category, discount, discountDuration,
+                    availability, availabilityDate
+                };
+                
+                if (fileInput.files.length > 0) {
+                    const imageUrl = await uploadImageToImgBB(fileInput.files[0]);
+                    updateData.imageUrl = imageUrl;
+                }
+
+                await updateDoc(doc(db, "products", id), updateData);
+                alert('✅ تم تحديث المنتج بنجاح');
+                document.getElementById('editModalOverlay').classList.remove('active');
+            } catch (error) {
+                alert('❌ خطأ أثناء التحديث: ' + error.message);
+            } finally {
+                updateBtn.innerText = '💾 حفظ التعديلات';
+                updateBtn.disabled = false;
+            }
+        });
+
         function initAdminDashboard() {
             // --- الطلبات ---
             const ordersContainer = document.getElementById('ordersContainer');
             const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-            
             onSnapshot(qOrders, (snapshot) => {
                 if (snapshot.empty) {
                     ordersContainer.innerHTML = '<p style="color:#888;">لا توجد طلبات جديدة حالياً.</p>';
@@ -323,10 +543,10 @@
                                 <strong>📞 ${escapeHTML(order.phone)}</strong>
                                 <small style="color:#888;">${escapeHTML(order.date)}</small>
                             </div>
-                            <p style="margin-bottom:5px;"><strong>📍 العنوان:</strong> ${escapeHTML(order.address)}</p>
-                            <p style="margin-bottom:5px;"><strong>🛒 الطلبات:</strong> ${escapeHTML(order.items)}</p>
+                            <p><strong>📍 العنوان:</strong> ${escapeHTML(order.address)}</p>
+                            <p><strong>🛒 الطلبات:</strong> ${escapeHTML(order.items)}</p>
                             ${order.smartDiscount > 0 ? `<p style="color:green;"><strong>🎉 خصم ذكي:</strong> -${escapeHTML(order.smartDiscount)} ل.س</p>` : ''}
-                            <p style="margin-bottom:5px;"><strong>🚚 التوصيل:</strong> ${escapeHTML(order.deliveryType || 'غير محدد')} - ${escapeHTML(order.deliveryCost || '0')} ل.س</p>
+                            <p><strong>🚚 التوصيل:</strong> ${escapeHTML(order.deliveryType || 'غير محدد')} - ${escapeHTML(order.deliveryCost || '0')} ل.س</p>
                             <p style="color:var(--primary); font-weight:bold;"><strong>💰 الإجمالي:</strong> ${escapeHTML(order.total)} ل.س</p>
                             <button class="btn btn-danger" style="margin-top:10px;" onclick="window.deleteOrder('${docSnap.id}')">🗑️ حذف الطلب</button>
                         </div>
@@ -334,57 +554,85 @@
                 }).join('');
             });
 
-            // --- المنتجات ---
+            // --- المنتجات (مع تخزين للبحث والتعديل) ---
             const adminTable = document.getElementById('adminProductsTable');
             const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
-
+            
             onSnapshot(qProducts, (snapshot) => {
-                if (snapshot.empty) {
-                    adminTable.innerHTML = '<tr><td colspan="9" style="text-align:center;">لا توجد منتجات.</td></tr>';
-                    return;
-                }
-                adminTable.innerHTML = snapshot.docs.map(docSnap => {
-                    const p = docSnap.data() || {};
-                    const imgUrlStr = String(p.imageUrl || '').trim();
-                    const isValidUrl = imgUrlStr !== '' && imgUrlStr !== 'null' && imgUrlStr !== 'undefined';
-                    const imgTag = isValidUrl ?
-                        `<img src="${escapeHTML(imgUrlStr)}" class="product-img-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">` +
-                        `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:20px; color:#aaa;"></i>` :
-                        `<i class="fa-solid fa-basket-shopping" style="font-size:20px; color:#aaa;"></i>`;
-                    
-                    const discountBadge = p.discount && p.discount > 0 ? `<span class="badge badge-discount">-${p.discount}%</span>` : '<span style="color:#888;">—</span>';
-                    const discountDuration = p.discount && p.discount > 0 ? (p.discountDuration || 'غير محدد') : '—';
-                    const availability = p.availability || 'متوفر';
-                    
-                    // المعالجة الآمنة الفائقة لتاريخ التوفر لمنع ظهور خطأ Invalid Date نهائياً
-                    let availabilityDate = '—';
-                    if (p.availabilityDate) {
-                        const parsedDate = p.availabilityDate.toDate ? p.availabilityDate.toDate() : new Date(p.availabilityDate);
-                        if (!isNaN(parsedDate.getTime())) {
-                            availabilityDate = parsedDate.toLocaleDateString('ar-EG');
-                        }
-                    }
-                    
-                    return `
-                        <tr>
-                            <td>${imgTag}</td>
-                            <td>${escapeHTML(p.name)}</td>
-                            <td>${escapeHTML(p.price)} ل.س</td>
-                            <td>${discountBadge}</td>
-                            <td>${discountDuration}</td>
-                            <td>${escapeHTML(availability)}</td>
-                            <td>${escapeHTML(availabilityDate)}</td>
-                            <td>${escapeHTML(p.category)}</td>
-                            <td><button class="btn btn-danger" onclick="window.deleteProduct('${docSnap.id}')">🗑️ حذف</button></td>
-                        </tr>
-                    `;
-                }).join('');
+                const products = [];
+                snapshot.forEach(docSnap => {
+                    products.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                window.allProducts = products; // تخزين للبحث والتعديل
+                renderProductsTable(products);
+            });
+
+            // فلترة عبر البحث
+            document.getElementById('productSearch')?.addEventListener('input', function(e) {
+                const term = e.target.value.trim().toLowerCase();
+                const products = window.allProducts || [];
+                const filtered = term === '' ? products : products.filter(p => 
+                    (p.name && p.name.toLowerCase().includes(term)) || 
+                    (p.category && p.category.toLowerCase().includes(term))
+                );
+                renderProductsTable(filtered);
             });
         }
 
+        function renderProductsTable(products) {
+            const adminTable = document.getElementById('adminProductsTable');
+            if (!products.length) {
+                adminTable.innerHTML = '<tr><td colspan="9" style="text-align:center;">لا توجد منتجات مطابقة.</td></tr>';
+                return;
+            }
+            adminTable.innerHTML = products.map(p => {
+                const imgUrlStr = String(p.imageUrl || '').trim();
+                const isValidUrl = imgUrlStr !== '' && imgUrlStr !== 'null' && imgUrlStr !== 'undefined';
+                const imgTag = isValidUrl ?
+                    `<img src="${escapeHTML(imgUrlStr)}" class="product-img-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">` +
+                    `<i class="fa-solid fa-basket-shopping" style="display:none; font-size:20px; color:#aaa;"></i>` :
+                    `<i class="fa-solid fa-basket-shopping" style="font-size:20px; color:#aaa;"></i>`;
+                
+                const discountBadge = p.discount && p.discount > 0 ? `<span class="badge badge-discount">-${p.discount}%</span>` : '<span style="color:#888;">—</span>';
+                const discountDuration = p.discount && p.discount > 0 ? (p.discountDuration || 'غير محدد') : '—';
+                const availability = p.availability || 'متوفر';
+                
+                let availabilityDate = '—';
+                if (p.availabilityDate) {
+                    const parsedDate = p.availabilityDate.toDate ? p.availabilityDate.toDate() : new Date(p.availabilityDate);
+                    if (!isNaN(parsedDate.getTime())) {
+                        availabilityDate = parsedDate.toLocaleDateString('ar-EG');
+                    }
+                }
+                
+                return `
+                    <tr>
+                        <td>${imgTag}</td>
+                        <td>${escapeHTML(p.name)}</td>
+                        <td>${escapeHTML(p.price)} ل.س</td>
+                        <td>${discountBadge}</td>
+                        <td>${discountDuration}</td>
+                        <td>${escapeHTML(availability)}</td>
+                        <td>${escapeHTML(availabilityDate)}</td>
+                        <td>${escapeHTML(p.category)}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn btn-outline btn-small" onclick="window.editProduct('${p.id}')">
+                                    <i class="fa-solid fa-pen-to-square"></i> تعديل
+                                </button>
+                                <button class="btn btn-danger btn-small" onclick="window.deleteProduct('${p.id}')">
+                                    <i class="fa-solid fa-trash"></i> حذف
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // إضافة منتج جديد
         document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
-
             const saveBtn = document.getElementById('saveProductBtn');
             saveBtn.innerText = 'جاري حفظ المنتج والصورة...';
             saveBtn.disabled = true;
@@ -395,11 +643,10 @@
             let discount = Number(document.getElementById('pDiscount').value) || 0;
             const removeDiscount = document.getElementById('pRemoveDiscount').checked;
             if (removeDiscount) discount = 0;
-            const discountDuration = Number(document.getElementById('pDiscountDuration').value) || 7;
+            const discountDuration = discount > 0 ? Number(document.getElementById('pDiscountDuration').value) || 7 : 0;
             const availability = document.getElementById('pAvailability').value;
             const availabilityDateVal = document.getElementById('pAvailabilityDate').value;
             const availabilityDate = availabilityDateVal ? new Date(availabilityDateVal) : null;
-
             const fileInput = document.getElementById('pImgFile');
             let imageUrl = '';
 
@@ -407,26 +654,18 @@
                 if (fileInput.files.length > 0) {
                     imageUrl = await uploadImageToImgBB(fileInput.files[0]);
                 }
-
                 await addDoc(collection(db, "products"), {
-                    name: String(name),
-                    price: Number(price),
-                    category: String(category),
-                    discount: Number(discount),
-                    discountDuration: discount > 0 ? Number(discountDuration) : 0,
-                    availability: String(availability),
-                    availabilityDate: availabilityDate,
-                    imageUrl: String(imageUrl),
+                    name, price, category, discount, discountDuration,
+                    availability, availabilityDate, imageUrl,
                     createdAt: serverTimestamp()
                 });
-
                 alert('✅ تمت إضافة المنتج بنجاح!');
                 this.reset();
                 document.getElementById('pDiscount').disabled = false;
                 document.getElementById('discountDurationGroup').style.display = 'block';
                 document.getElementById('pRemoveDiscount').checked = false;
             } catch (error) {
-                alert('❌ حدث خطأ أثناء إضافة المنتج: ' + error.message);
+                alert('❌ حدث خطأ: ' + error.message);
             } finally {
                 saveBtn.innerText = '💾 حفظ المنتج';
                 saveBtn.disabled = false;

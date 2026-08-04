@@ -15,7 +15,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+export const db = getFirestore(app);
 
 // ==================== الأدوات المساعدة ====================
 export const escapeHTML = str => str == null ? '' : String(str).replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t));
@@ -649,6 +649,11 @@ export async function loadMoreProducts() {
 }
 
 // ==================== دوال الإدارة ====================
+export function toggleAdminModal() {
+    const modal = document.getElementById('adminModal');
+    if (modal) modal.classList.toggle('open');
+}
+
 export async function deleteProduct(productId) {
     if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
         try {
@@ -722,7 +727,8 @@ export function initMainPage() {
         filterByCategory, filterBySearch, uploadImageToImgBB, compressOldBase64Images,
         updateDelivery, toggleInfoModal, shareProduct, copyReferralCode, shareReferral,
         getMyReferralCode, loadMoreProducts, toggleDarkMode, loadProductsByCategory,
-        quickBuy, deleteProduct, updateProduct, startVoiceSearch, initProductsListener
+        quickBuy, deleteProduct, updateProduct, startVoiceSearch, initProductsListener,
+        toggleAdminModal
     });
 }
 

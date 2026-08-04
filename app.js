@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
-    getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc,
-    query, where, orderBy, limit, serverTimestamp, getDocs, startAfter, writeBatch
+    getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
+    query, where, orderBy, limit, serverTimestamp, getDocs, startAfter
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -20,6 +20,16 @@ const db = getFirestore(app);
 // ==================== الأدوات المساعدة ====================
 export const escapeHTML = str => str == null ? '' : String(str).replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t));
 
+const normalizeArabicText = (text = '') => {
+    return String(text)
+        .toLowerCase()
+        .replace(/[أإآء]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .replace(/[\u064B-\u0652]/g, '')
+        .trim();
+};
+
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
@@ -28,23 +38,28 @@ function showToast(message, type = 'info') {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         background: ${type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#3498db'};
         color: white; padding: 12px 24px; border-radius: 30px; z-index: 10000;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: opacity 0.3s;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: opacity 0.3s; font-family: inherit;
+        max-width: 90%; text-align: center;
     `;
     document.body.appendChild(toast);
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
-// ==================== إدارة الصور ====================
-const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70", MAX_UPLOAD_SIZE_MB = 15, IMAGE_MAX_WIDTH = 600, JPEG_QUALITY = 0.7;
+// ==================== إدارة الصور (WebP) ====================
+const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70", MAX_UPLOAD_SIZE_MB = 15, IMAGE_MAX_WIDTH = 600, WEBP_QUALITY = 0.75;
 
 export async function uploadImageToImgBB(fileOrInput) {
     let file = fileOrInput instanceof File ? fileOrInput : fileOrInput?.files?.[0];
     if (!file) return '';
-    if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) return showToast(`⚠️ حجم الصورة كبير جداً. الحد الأقصى ${MAX_UPLOAD_SIZE_MB} ميغابايت.`, 'error'), '';
+    if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
+        showToast(`⚠️ حجم الصورة كبير جداً. الحد الأقصى ${MAX_UPLOAD_SIZE_MB} ميغابايت.`, 'error');
+        return '';
+    }
 
     try {
         const formData = new FormData();
-        formData.append('image', await compressImageFile(file), 'product.jpg');
+        const compressedBlob = await compressImageFile(file);
+        formData.append('image', compressedBlob, 'product.webp');
         const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
         if (res.ok) return (await res.json())?.data?.url || '';
     } catch (e) { console.error("خطأ رفع الصورة:", e); }
@@ -58,12 +73,14 @@ function compressImageFile(file) {
         reader.onload = e => {
             const img = new Image();
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let { width, height } = img;
-                if (width > IMAGE_MAX_WIDTH) { height = Math.round((height * IMAGE_MAX_WIDTH) / width); width = IMAGE_MAX_WIDTH; }
-                canvas.width = width; canvas.height = height;
-                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', JPEG_QUALITY);
+                try {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+                    if (width > IMAGE_MAX_WIDTH) { height = Math.round((height * IMAGE_MAX_WIDTH) / width); width = IMAGE_MAX_WIDTH; }
+                    canvas.width = width; canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(blob => resolve(blob || file), 'image/webp', WEBP_QUALITY);
+                } catch (err) { resolve(file); }
             };
             img.onerror = () => resolve(file);
             img.src = e.target.result;
@@ -73,50 +90,78 @@ function compressImageFile(file) {
     });
 }
 
+// ==================== ضغط الصور القديمة (مع التحديث المباشر) ====================
 export async function compressOldBase64Images() {
     console.log("⏳ بدء ضغط الصور القديمة...");
     let lastDoc = null, hasMore = true, totalUpdated = 0;
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 15; // تقليل الحجم لضمان ثبات الأداء
     try {
         while (hasMore) {
-            const constraints = [collection(db, "products"), limit(BATCH_SIZE)];
+            const constraints = [
+                collection(db, "products"),
+                orderBy("createdAt", "desc"),
+                limit(BATCH_SIZE)
+            ];
             if (lastDoc) constraints.push(startAfter(lastDoc));
             const snapshot = await getDocs(query(...constraints));
             if (snapshot.empty) break;
 
             for (const docSnap of snapshot.docs) {
-                const url = String(docSnap.data().imageUrl || '').trim();
-                if (url.startsWith('data:image')) {
-                    const compressed = await compressBase64ToJPEG(url, 400, 0.5);
-                    await updateDoc(doc(db, "products", docSnap.id), { imageUrl: compressed });
-                    totalUpdated++;
+                const data = docSnap.data();
+                const url = String(data.imageUrl || '').trim();
+                if (url.startsWith('data:image') && !data.isCompressed) {
+                    try {
+                        const compressed = await compressBase64ToWebP(url, 400, 0.6);
+                        if (compressed && compressed !== url) {
+                            await updateDoc(doc(db, "products", docSnap.id), {
+                                imageUrl: compressed,
+                                isCompressed: true
+                            });
+                            totalUpdated++;
+                            // تحديث مباشر في الذاكرة لعرض الصورة المضغوطة فوراً
+                            const localProduct = globalProducts.find(p => p.id === docSnap.id);
+                            if (localProduct) {
+                                localProduct.imageUrl = compressed;
+                                localProduct.isCompressed = true;
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`خطأ في ضغط المنتج ${docSnap.id}:`, err);
+                    }
                 }
-                await new Promise(r => setTimeout(r, 50));
+                // إعطاء مهلة صغيرة للمعالج
+                await new Promise(r => setTimeout(r, 60));
             }
             lastDoc = snapshot.docs[snapshot.docs.length - 1];
             if (snapshot.docs.length < BATCH_SIZE) hasMore = false;
         }
+        applyFilters(); // تحديث الواجهة
         showToast(`✅ تم ضغط ${totalUpdated} صورة قديمة بنجاح.`, 'success');
-    } catch (e) { console.error("فشل ضغط الصور القديمة:", e); }
+    } catch (e) {
+        console.error("فشل ضغط الصور القديمة:", e);
+        showToast("❌ فشل ضغط الصور القديمة", 'error');
+    }
 }
 
-function compressBase64ToJPEG(base64, maxWidth, quality) {
+function compressBase64ToWebP(base64, maxWidth, quality) {
     return new Promise(resolve => {
         const img = new Image();
         img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let { width, height } = img;
-            if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
-            canvas.width = width; canvas.height = height;
-            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', quality));
+            try {
+                const canvas = document.createElement('canvas');
+                let { width, height } = img;
+                if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
+                canvas.width = width; canvas.height = height;
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/webp', quality));
+            } catch (e) { resolve(null); }
         };
-        img.onerror = () => resolve(base64);
+        img.onerror = () => resolve(null);
         img.src = base64;
     });
 }
 
-// ==================== إدارة المظهر الداكن ====================
+// ==================== المظهر الداكن ====================
 export function toggleDarkMode() {
     const isDark = document.body.classList.toggle('dark');
     localStorage.setItem('alukhowah_dark', isDark ? 'true' : 'false');
@@ -138,10 +183,8 @@ export function loadDarkModePreference() {
 // ==================== حالة التطبيق ====================
 let globalProducts = [], cart = loadCartFromStorage(), isSubmitting = false;
 let currentCategory = 'all', currentSearch = '', currentDeliveryType = 'inside', currentDeliveryKm = 1;
-
 let lastVisibleProduct = null, isLoadingMore = false, hasMoreProducts = true;
 const PAGE_SIZE = 24;
-let unsubscribeProducts = null;
 const categoryCache = {};
 
 // ==================== نظام الدعوة والخصم ====================
@@ -156,8 +199,15 @@ export function getMyReferralCode() {
 
 export const getInviteLink = () => `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
 
-export function shareProduct(platform, productName, productPrice) {
-    const code = getMyReferralCode(), message = `🛍️ ${productName}\n💰 ${productPrice} TL\n🎁 كود خصم 10%: ${code}\n📱 ${window.location.href}`, encoded = encodeURIComponent(message);
+export function shareProduct(platform, productId) {
+    const p = globalProducts.find(item => item.id === productId);
+    if (!p) return;
+    const discount = Number(p.discount) || 0, basePrice = Number(p.price) || 0;
+    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+    const code = getMyReferralCode();
+    const message = `🛍️ ${p.name}\n💰 ${finalPrice} TL\n🎁 كود خصم 10%: ${code}\n📱 ${window.location.href}`;
+    const encoded = encodeURIComponent(message);
+
     if (platform === 'instagram') navigator.clipboard.writeText(message).then(() => showToast('✅ تم نسخ الرابط للصقه في انستا', 'success'));
     else if (platform === 'whatsapp') window.open(`https://wa.me/?text=${encoded}`, '_blank');
     else if (platform === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encoded}`, '_blank');
@@ -168,21 +218,12 @@ export function handleReferral() {
     if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
         localStorage.setItem('invitedBy', ref);
         localStorage.setItem('referralUsed', 'true');
-        let points = JSON.parse(localStorage.getItem('referralPoints') || '{}');
-        points[ref] = (points[ref] || 0) + 1;
-        localStorage.setItem('referralPoints', JSON.stringify(points));
         setTimeout(() => showToast('🎉 مرحباً! تم تفعيل خصم 10% على طلبك الأول فوق 100 TL', 'success'), 500);
     }
 }
 
 export function getReferralDiscount(total) {
     return (total >= 100 && localStorage.getItem('invitedBy') && !localStorage.getItem('discountApplied')) ? total * 0.10 : 0;
-}
-
-export function applyReferralDiscount(total) {
-    const discount = getReferralDiscount(total);
-    if (discount > 0) localStorage.setItem('discountApplied', 'true');
-    return discount;
 }
 
 export function showReferralCode() {
@@ -210,13 +251,27 @@ export function initReferralSystem() {
 }
 
 // ==================== عرض المنتجات ====================
+function renderSkeletonLoaders() {
+    const grid = document.getElementById('productsGrid');
+    if (!grid) return;
+    grid.innerHTML = Array.from({ length: 8 }, () => `
+        <div class="product-card skeleton" style="opacity:0.6; pointer-events:none;">
+            <div class="product-img" style="background:#e0e0e0; height:180px; border-radius:10px;"></div>
+            <div class="product-info" style="padding:10px 0;">
+                <div style="background:#e0e0e0; height:15px; width:70%; margin-bottom:8px; border-radius:4px;"></div>
+                <div style="background:#e0e0e0; height:20px; width:40%; border-radius:4px;"></div>
+            </div>
+        </div>
+    `).join('');
+}
+
 export function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
     if (!items.length) {
-        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; padding:20px;">
-            لا توجد منتجات متوفرة.
-            <br><button onclick="window.loadProductsByCategory(window.getCurrentCategory())" style="margin-top:10px; padding:8px 20px; background:var(--primary); color:white; border:none; border-radius:20px; cursor:pointer;">🔄 تحميل المنتجات</button>
+        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; padding:30px;">
+            لا توجد منتجات مطابقة لطلبك.
+            <br><button onclick="window.filterByCategory('all', null)" style="margin-top:10px; padding:8px 20px; background:var(--primary); color:white; border:none; border-radius:20px; cursor:pointer;">🔄 إظهار الكل</button>
         </p>`;
         return;
     }
@@ -257,9 +312,9 @@ export function displayProducts(items) {
                     ${availabilityDateText}
                 </div>
                 <div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;justify-content:center;">
-                    <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i></button>
-                    <button onclick="window.shareProduct('facebook', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;"><i class="fa-brands fa-facebook" style="color:#1877F2;"></i></button>
-                    <button onclick="window.shareProduct('instagram', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;"><i class="fa-brands fa-instagram" style="color:#E4405F;"></i></button>
+                    <button onclick="window.shareProduct('whatsapp', '${p.id}')" style="background:none;border:none;font-size:18px;cursor:pointer;"><i class="fa-brands fa-whatsapp" style="color:#25D366;"></i></button>
+                    <button onclick="window.shareProduct('facebook', '${p.id}')" style="background:none;border:none;font-size:18px;cursor:pointer;"><i class="fa-brands fa-facebook" style="color:#1877F2;"></i></button>
+                    <button onclick="window.shareProduct('instagram', '${p.id}')" style="background:none;border:none;font-size:18px;cursor:pointer;"><i class="fa-brands fa-instagram" style="color:#E4405F;"></i></button>
                 </div>
                 <button class="btn-add-cart" ${disableAdd ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : `onclick="window.addToCart('${p.id}')"`}>${disableAdd ? 'غير متوفر' : '+ أضف للسلة'}</button>
                 ${!disableAdd ? `<button class="btn-quick-buy" onclick="window.quickBuy('${p.id}')" style="margin-top:5px; width:100%; padding:5px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer;">⚡ شراء سريع</button>` : ''}
@@ -268,13 +323,13 @@ export function displayProducts(items) {
     }).join('');
 }
 
-// ==================== الفلاتر والبحث والتمرير التلقائي ====================
+// ==================== الفلاتر والبحث ====================
 export function applyFilters() {
     let filtered = globalProducts;
     if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
     if (currentSearch.trim()) {
-        const searchLower = currentSearch.toLowerCase();
-        filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(searchLower));
+        const searchNorm = normalizeArabicText(currentSearch);
+        filtered = filtered.filter(p => normalizeArabicText(p.name || '').includes(searchNorm));
     }
     displayProducts(filtered);
 }
@@ -311,27 +366,12 @@ async function loadProductsByCategory(category) {
 let searchTimeout;
 export function filterBySearch(queryStr) {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(async () => {
+    searchTimeout = setTimeout(() => {
         currentSearch = queryStr;
         applyFilters();
-
-        // بحث مباشر في قاعدة البيانات إذا لم يتم العثور على منتجات كافية محلياً
-        if (queryStr.trim().length >= 2) {
-            try {
-                const q = query(collection(db, "products"), where("name", ">=", queryStr), where("name", "<=", queryStr + '\uf8ff'), limit(20));
-                const snapshot = await getDocs(q);
-                if (!snapshot.empty) {
-                    const fetchedProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const existingIds = new Set(globalProducts.map(p => p.id));
-                    fetchedProducts.forEach(p => { if (!existingIds.has(p.id)) globalProducts.push(p); });
-                    applyFilters();
-                }
-            } catch (e) { console.error("خطأ البحث المباشر:", e); }
-        }
     }, 300);
 }
 
-// التمرير التلقائي اللانهائي (Infinite Scroll)
 function initInfiniteScroll() {
     window.addEventListener('scroll', () => {
         if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
@@ -410,7 +450,6 @@ export function removeFromCart(productId) {
     saveCartToStorage(); updateCartBadge(); renderCartItems();
 }
 
-// ==================== الحسابات والتوصيل ====================
 export function updateDelivery() {
     const typeEl = document.getElementById('deliveryType'), kmContainer = document.getElementById('kmInputContainer');
     if (typeEl) currentDeliveryType = typeEl.value;
@@ -431,7 +470,6 @@ function calculateFinalTotal() {
     return { itemsTotal, smartDiscountPercent, smartDiscountAmount, referralDiscount, discountedItemsTotal: discountedTotal, deliveryCost, finalTotal: discountedTotal + deliveryCost };
 }
 
-// ==================== عرض السلة والمودال ====================
 export function toggleCartModal() {
     const modal = document.getElementById('cartModal');
     if (!modal) return;
@@ -501,6 +539,9 @@ export function initCheckoutForm() {
                 date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                 createdAt: serverTimestamp()
             });
+
+            if (calc.referralDiscount > 0) localStorage.setItem('discountApplied', 'true');
+
             showToast(`✅ تم إرسال طلبك بنجاح! الإجمالي: ${Math.round(calc.finalTotal)} TL`, 'success');
             cart = []; saveCartToStorage(); updateCartBadge(); renderCartItems(); toggleCartModal(); form.reset();
         } catch (err) { showToast('❌ حدث خطأ: ' + err.message, 'error'); }
@@ -513,11 +554,12 @@ export function toggleInfoModal() {
     if (modal) modal.classList.toggle('open');
 }
 
-// ==================== تحميل المنتجات ====================
+// ==================== تحميل المنتجات من Firestore ====================
 export async function initProductsListener() {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
-    if (unsubscribeProducts) { unsubscribeProducts(); unsubscribeProducts = null; }
+
+    renderSkeletonLoaders();
 
     try {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
@@ -570,6 +612,9 @@ export async function deleteProduct(productId) {
 export async function updateProduct(productId, newData) {
     try {
         await updateDoc(doc(db, "products", productId), newData);
+        const product = globalProducts.find(p => p.id === productId);
+        if (product) Object.assign(product, newData);
+        applyFilters();
         showToast('تم التحديث بنجاح', 'success');
     } catch (e) { showToast('فشل التحديث: ' + e.message, 'error'); }
 }
@@ -582,7 +627,7 @@ export function startVoiceSearch() {
         const recognition = new SpeechRecognition();
         recognition.lang = 'ar-EG';
         recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
+            const transcript = event.results[0][0].transcript.trim();
             const searchInput = document.getElementById('searchInput');
             if (searchInput) { searchInput.value = transcript; filterBySearch(transcript); }
         };
@@ -620,7 +665,7 @@ export function initMainPage() {
     updateCartBadge();
     initInfiniteScroll();
 
-    // ربط الدوال العالمية
+    // ربط الدوال بالنافذة العالمية للـ HTML
     Object.assign(window, {
         toggleFavorite, addToCart, changeQty, removeFromCart, toggleCartModal,
         filterByCategory, filterBySearch, uploadImageToImgBB, compressOldBase64Images,
@@ -635,5 +680,3 @@ if (document.readyState === 'loading') {
 } else {
     initMainPage();
 }
-
-export { db, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch };

@@ -347,7 +347,7 @@ export function displayProducts(items) {
         let availabilityDateText = '';
         if (p.availabilityDate) {
             try {
-                const dateObj = p.availabilityDate.toDate ? p.availabilityDate.toDate() : new Date(p.availabilityDate);
+                const dateObj = typeof p.availabilityDate?.toDate === 'function' ? p.availabilityDate.toDate() : new Date(p.availabilityDate);
                 if (!isNaN(dateObj.getTime())) {
                     availabilityDateText = `<div style="font-size:11px;color:#888;margin:2px 0;">📅 متاح من: ${dateObj.toLocaleDateString('ar-EG')}</div>`;
                 }
@@ -441,7 +441,7 @@ export async function filterByCategory(cat, element) {
     applyFilters();
 }
 
-// جعل currentCategory متاحة عالمياً بشكل ديناميكي
+// إتاحة currentCategory عالمياً
 window.getCurrentCategory = () => currentCategory;
 
 async function loadProductsByCategory(category) {
@@ -780,17 +780,22 @@ export function startVoiceSearch() {
         showToast('المتصفح لا يدعم البحث الصوتي', 'error');
         return;
     }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ar-EG';
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.value = transcript;
-            filterBySearch(transcript);
-        }
-    };
-    recognition.start();
+    try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ar-EG';
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = transcript;
+                filterBySearch(transcript);
+            }
+        };
+        recognition.onerror = () => showToast('حدث خطأ أثناء التعرف على الصوت', 'error');
+        recognition.start();
+    } catch (err) {
+        showToast('تعذر تشغيل البحث الصوتي', 'error');
+    }
 }
 
 // ==================== تهيئة الصفحة الرئيسية ====================
@@ -856,7 +861,7 @@ export function initMainPage() {
     window.deleteProduct = deleteProduct;
     window.updateProduct = updateProduct;
     window.startVoiceSearch = startVoiceSearch;
-    window.getCurrentCategory = window.getCurrentCategory; // للإشارة فقط
+    window.initProductsListener = initProductsListener;
 }
 
 // تشغيل تلقائي

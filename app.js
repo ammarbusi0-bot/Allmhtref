@@ -94,7 +94,7 @@ function compressImageFile(file) {
 export async function compressOldBase64Images() {
     console.log("⏳ بدء ضغط الصور القديمة...");
     let lastDoc = null, hasMore = true, totalUpdated = 0;
-    const BATCH_SIZE = 15; // تقليل الحجم لضمان ثبات الأداء
+    const BATCH_SIZE = 15;
     try {
         while (hasMore) {
             const constraints = [
@@ -118,7 +118,6 @@ export async function compressOldBase64Images() {
                                 isCompressed: true
                             });
                             totalUpdated++;
-                            // تحديث مباشر في الذاكرة لعرض الصورة المضغوطة فوراً
                             const localProduct = globalProducts.find(p => p.id === docSnap.id);
                             if (localProduct) {
                                 localProduct.imageUrl = compressed;
@@ -129,13 +128,12 @@ export async function compressOldBase64Images() {
                         console.error(`خطأ في ضغط المنتج ${docSnap.id}:`, err);
                     }
                 }
-                // إعطاء مهلة صغيرة للمعالج
                 await new Promise(r => setTimeout(r, 60));
             }
             lastDoc = snapshot.docs[snapshot.docs.length - 1];
             if (snapshot.docs.length < BATCH_SIZE) hasMore = false;
         }
-        applyFilters(); // تحديث الواجهة
+        applyFilters();
         showToast(`✅ تم ضغط ${totalUpdated} صورة قديمة بنجاح.`, 'success');
     } catch (e) {
         console.error("فشل ضغط الصور القديمة:", e);
@@ -183,9 +181,16 @@ export function loadDarkModePreference() {
 // ==================== حالة التطبيق ====================
 let globalProducts = [], cart = loadCartFromStorage(), isSubmitting = false;
 let currentCategory = 'all', currentSearch = '', currentDeliveryType = 'inside', currentDeliveryKm = 1;
+
+// تتبع التصفح والتحميل للأقسام والرئيسية
 let lastVisibleProduct = null, isLoadingMore = false, hasMoreProducts = true;
 const PAGE_SIZE = 24;
+
+const categoryLastDocs = {};
+const categoryHasMoreMap = {};
 const categoryCache = {};
+let isCategoryLoading = false;
+const CATEGORY_PAGE_SIZE = 15;
 
 // ==================== نظام الدعوة والخصم ====================
 export function getMyReferralCode() {
@@ -280,7 +285,7 @@ export function displayProducts(items) {
     grid.innerHTML = items.map(p => {
         const isFav = favs.includes(p.id), imgUrl = String(p.imageUrl || '').trim(), isValidImg = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
         const imageHTML = isValidImg
-            ? `<img src="${escapeHTML(imgUrl)}" alt="${escapeHTML(p.name)}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            ? `<img src="${escapeHTML(imgUrl)}" alt="${escapeHTML(p.name)}" loading="lazy" width="300" height="200" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
                <div class="no-img-fallback" style="display:none;"><i class="fa-solid fa-basket-shopping"></i></div>`
             : `<div class="no-img-fallback"><i class="fa-solid fa-basket-shopping"></i></div>`;
 
@@ -339,27 +344,71 @@ export async function filterByCategory(cat, element) {
     if (element) element.classList.add('active');
     currentCategory = cat;
 
-    if (cat !== 'all' && !categoryCache[cat] && globalProducts.filter(p => p.category === cat).length === 0) {
-        await loadProductsByCategory(cat);
+    if (cat !== 'all' && !categoryCache[cat]) {
+        renderSkeletonLoaders();
+        await loadProductsByCategory(cat, true);
     }
     applyFilters();
 }
 
 window.getCurrentCategory = () => currentCategory;
 
-async function loadProductsByCategory(category) {
-    showToast(`جاري تحميل منتجات ${category}...`, 'info');
+// دالة جلب منتجات القسم التراكمية (Pagination for Categories)
+export async function loadProductsByCategory(category, isInitial = true) {
+    if (isCategoryLoading) return;
+    if (!isInitial && categoryHasMoreMap[category] === false) return;
+
+    isCategoryLoading = true;
+    showToast(`جاري تحميل المنتجات...`, 'info');
+
+    if (isInitial) {
+        categoryLastDocs[category] = null;
+        categoryHasMoreMap[category] = true;
+    }
+
     try {
-        const q = query(collection(db, "products"), where("category", "==", category), orderBy("createdAt", "desc"), limit(50));
+        let constraints = [
+            collection(db, "products"),
+            where("category", "==", category),
+            limit(CATEGORY_PAGE_SIZE)
+        ];
+
+        if (!isInitial && categoryLastDocs[category]) {
+            constraints.push(startAfter(categoryLastDocs[category]));
+        }
+
+        const q = query(...constraints);
         const snapshot = await getDocs(q);
-        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (snapshot.empty) {
+            categoryHasMoreMap[category] = false;
+            showToast("لا توجد منتجات إضافية في هذا القسم", 'info');
+            return;
+        }
+
+        let fetchedProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // ترتيب دفعة المنتجات من الأحدث للأقدم داخل الذاكرة
+        fetchedProducts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+        categoryLastDocs[category] = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.docs.length < CATEGORY_PAGE_SIZE) {
+            categoryHasMoreMap[category] = false;
+        }
+
+        // دمج المنتجات الجديدة دون تكرار
         const existingIds = new Set(globalProducts.map(p => p.id));
-        products.forEach(p => { if (!existingIds.has(p.id)) { globalProducts.push(p); existingIds.add(p.id); } });
+        fetchedProducts.forEach(p => {
+            if (!existingIds.has(p.id)) globalProducts.push(p);
+        });
+
         categoryCache[category] = true;
-        showToast(`✅ تم تحميل ${products.length} منتج`, 'success');
+        applyFilters();
     } catch (error) {
         console.error("خطأ في تحميل الفئة:", error);
         showToast("فشل تحميل المنتجات", 'error');
+    } finally {
+        isCategoryLoading = false;
     }
 }
 
@@ -375,8 +424,10 @@ export function filterBySearch(queryStr) {
 function initInfiniteScroll() {
     window.addEventListener('scroll', () => {
         if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
-            if (hasMoreProducts && !isLoadingMore && currentCategory === 'all' && !currentSearch.trim()) {
+            if (currentCategory === 'all' && hasMoreProducts && !isLoadingMore && !currentSearch.trim()) {
                 loadMoreProducts();
+            } else if (currentCategory !== 'all' && categoryHasMoreMap[currentCategory] !== false && !isCategoryLoading && !currentSearch.trim()) {
+                loadProductsByCategory(currentCategory, false);
             }
         }
     });

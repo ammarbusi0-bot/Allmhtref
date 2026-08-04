@@ -199,6 +199,7 @@ const CATEGORY_PAGE_SIZE = 15;
 let scrollObserver = null;
 const ADMIN_PASSWORD = "admin"; // كلمة سر الإدارة
 let ordersUnsubscribe = null;
+let isAdminMode = false; // للتحقق من صلاحيات المدير
 
 // ==================== نظام الدعوة والخصومات ====================
 export function getMyReferralCode() {
@@ -318,9 +319,6 @@ function generateProductCardHTML(p, favs) {
         </div>
         <button class="btn-add-cart" ${disableAdd ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : `onclick="window.addToCart('${p.id}')"`}>${disableAdd ? 'غير متوفر' : '+ أضف للسلة'}</button>
         ${!disableAdd ? `<button class="btn-quick-buy" onclick="window.quickBuy('${p.id}')" style="margin-top:5px; width:100%; padding:5px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer;">⚡ شراء سريع</button>` : ''}
-        <div class="admin-actions" style="margin-top:8px; display:flex; gap:5px;">
-            <button onclick="window.deleteProduct('${p.id}')" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; flex:1; font-size:12px;">🗑️ حذف</button>
-        </div>
     `;
 }
 
@@ -671,12 +669,13 @@ export function toggleInfoModal() {
 // ==================== غرفة الإدارة ومتابعة الطلبات المباشرة ====================
 export function toggleAdminModal() {
     const modal = document.getElementById('adminModal');
-    if (!modal) return showToast('❌ لم يتم العثور على عنصر غرفة الإدارة (adminModal)', 'error');
+    if (!modal) return;
     
     if (!modal.classList.contains('open')) {
         const pass = prompt('🔑 أدخل كلمة سر الإدارة:');
         if (pass === ADMIN_PASSWORD) {
             modal.classList.add('open');
+            isAdminMode = true;
             showToast('✅ مرحباً بك في غرفة الإدارة', 'success');
             listenToLiveOrders();
         } else if (pass !== null) {
@@ -684,64 +683,99 @@ export function toggleAdminModal() {
         }
     } else {
         modal.classList.remove('open');
-        if (ordersUnsubscribe) { ordersUnsubscribe(); ordersUnsubscribe = null; }
+        isAdminMode = false;
+        if (ordersUnsubscribe) { 
+            ordersUnsubscribe(); 
+            ordersUnsubscribe = null; 
+        }
     }
 }
 
 function listenToLiveOrders() {
     const container = document.getElementById('adminOrdersContainer');
-    if (!container) return;
+    if (!container) {
+        console.error("❌ عنصر adminOrdersContainer غير موجود في الصفحة");
+        return;
+    }
+
+    if (ordersUnsubscribe) {
+        ordersUnsubscribe();
+        ordersUnsubscribe = null;
+    }
 
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(20));
+    
     ordersUnsubscribe = onSnapshot(q, (snapshot) => {
         if (snapshot.empty) {
-            container.innerHTML = '<p style="text-align:center; padding:15px; color:#777;">لا توجد طلبات أخيرًا.</p>';
+            container.innerHTML = '<p style="text-align:center; padding:15px; color:#777;">لا توجد طلبات حالياً.</p>';
             return;
         }
 
         container.innerHTML = snapshot.docs.map(docSnap => {
-            const data = docSnap.id ? docSnap.data() : {};
+            const data = docSnap.data();
             const id = docSnap.id;
-            const statusMap = { 'pending': '⏳ قيد الانتظار', 'delivering': '🚚 جاري التوصيل', 'completed': '✅ مكتمل' };
-            const statusColor = { 'pending': '#f39c12', 'delivering': '#3498db', 'completed': '#2ecc71' };
+            const statusMap = { 
+                'pending': '⏳ قيد الانتظار', 
+                'delivering': '🚚 جاري التوصيل', 
+                'completed': '✅ مكتمل' 
+            };
+            const statusColor = { 
+                'pending': '#f39c12', 
+                'delivering': '#3498db', 
+                'completed': '#2ecc71' 
+            };
 
             return `
                 <div style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; background:var(--card-bg);">
-                    <div style="display:flex; justify-style:space-between; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
                         <strong>📞 ${escapeHTML(data.phone || 'بدون رقم')}</strong>
                         <span style="background:${statusColor[data.status || 'pending']}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${statusMap[data.status || 'pending']}</span>
                     </div>
                     <p style="font-size:13px; margin:5px 0;"><strong>📍 العنوان:</strong> ${escapeHTML(data.address || 'بدون عنوان')}</p>
                     <p style="font-size:13px; margin:5px 0;"><strong>🛒 المنتجات:</strong> ${escapeHTML(data.items || '')}</p>
                     <p style="font-size:14px; margin:5px 0; color:var(--primary);"><strong>💰 الإجمالي:</strong> ${data.total || 0} TL</p>
+                    <p style="font-size:11px; margin:5px 0; color:#888;"><strong>📅 التاريخ:</strong> ${escapeHTML(data.date || '')}</p>
                     <div style="display:flex; gap:5px; margin-top:8px;">
-                        <button onclick="window.updateOrderStatus('${id}', 'delivering')" style="background:#3498db; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">توصيل</button>
-                        <button onclick="window.updateOrderStatus('${id}', 'completed')" style="background:#2ecc71; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">إكتمال</button>
-                        <button onclick="window.deleteOrder('${id}')" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">حذف</button>
+                        <button onclick="window.updateOrderStatus('${id}', 'delivering')" style="background:#3498db; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">🚚 توصيل</button>
+                        <button onclick="window.updateOrderStatus('${id}', 'completed')" style="background:#2ecc71; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">✅ اكتمال</button>
+                        <button onclick="window.deleteOrder('${id}')" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">🗑️ حذف</button>
                     </div>
                 </div>
             `;
         }).join('');
+    }, (error) => {
+        console.error("❌ خطأ في مراقبة الطلبات:", error);
+        container.innerHTML = `<p style="text-align:center; padding:15px; color:#e74c3c;">❌ فشل تحميل الطلبات: ${error.message}</p>`;
     });
 }
 
 export async function updateOrderStatus(orderId, status) {
+    if (!isAdminMode) return showToast('❌ ليس لديك صلاحية', 'error');
     try {
         await updateDoc(doc(db, "orders", orderId), { status });
-        showToast('تم تحديث حالة الطلب بنجاح', 'success');
-    } catch (e) { showToast('فشل تحديث الحالة: ' + e.message, 'error'); }
-}
-
-export async function deleteOrder(orderId) {
-    if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
-        try {
-            await deleteDoc(doc(db, "orders", orderId));
-            showToast('تم حذف الطلب', 'success');
-        } catch (e) { showToast('فشل حذف الطلب: ' + e.message, 'error'); }
+        showToast('✅ تم تحديث حالة الطلب بنجاح', 'success');
+    } catch (e) { 
+        console.error("فشل تحديث الحالة:", e);
+        showToast('❌ فشل تحديث الحالة: ' + e.message, 'error'); 
     }
 }
 
+export async function deleteOrder(orderId) {
+    if (!isAdminMode) return showToast('❌ ليس لديك صلاحية', 'error');
+    if (confirm('⚠️ هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.')) {
+        try {
+            await deleteDoc(doc(db, "orders", orderId));
+            showToast('✅ تم حذف الطلب بنجاح', 'success');
+        } catch (e) { 
+            console.error("فشل حذف الطلب:", e);
+            showToast('❌ فشل حذف الطلب: ' + e.message, 'error'); 
+        }
+    }
+}
+
+// ==================== دوال الإدارة للمنتجات (تتطلب صلاحية) ====================
 export async function addProduct(productData) {
+    if (!isAdminMode) return showToast('❌ ليس لديك صلاحية', 'error');
     try {
         const docRef = await addDoc(collection(db, "products"), {
             ...productData,
@@ -769,6 +803,7 @@ export async function addProduct(productData) {
 }
 
 export async function deleteProduct(productId) {
+    if (!isAdminMode) return showToast('❌ ليس لديك صلاحية', 'error');
     if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
         try {
             await deleteDoc(doc(db, "products", productId));
@@ -784,6 +819,7 @@ export async function deleteProduct(productId) {
 }
 
 export async function updateProduct(productId, newData) {
+    if (!isAdminMode) return showToast('❌ ليس لديك صلاحية', 'error');
     try {
         await updateDoc(doc(db, "products", productId), newData);
         const product = globalProducts.find(p => p.id === productId);

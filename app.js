@@ -6,12 +6,15 @@ import {
     onSnapshot,
     doc,
     updateDoc,
+    deleteDoc,
     query,
+    where,
     orderBy,
     limit,
     serverTimestamp,
     getDocs,
-    startAfter
+    startAfter,
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -35,6 +38,25 @@ export function escapeHTML(str) {
     );
 }
 
+// إشعارات Toast بدلاً من alert
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: ${type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#3498db'};
+        color: white; padding: 12px 24px; border-radius: 30px; z-index: 10000;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2); animation: slideUp 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 // ==================== إدارة الصور ====================
 const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70"; // يُنقل للخادم لاحقاً
 const MAX_UPLOAD_SIZE_MB = 15;
@@ -46,7 +68,7 @@ export async function uploadImageToImgBB(fileOrInput) {
     if (!file) return '';
 
     if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
-        alert(`⚠️ حجم الصورة كبير جداً. الحد الأقصى ${MAX_UPLOAD_SIZE_MB} ميغابايت.`);
+        showToast(`⚠️ حجم الصورة كبير جداً. الحد الأقصى ${MAX_UPLOAD_SIZE_MB} ميغابايت.`, 'error');
         return '';
     }
 
@@ -66,7 +88,7 @@ export async function uploadImageToImgBB(fileOrInput) {
     } catch (e) {
         console.error("خطأ رفع الصورة:", e);
     }
-    alert("⚠️ تعذر رفع الصورة. تحقق من الاتصال وحاول مجدداً.");
+    showToast("⚠️ تعذر رفع الصورة. تحقق من الاتصال وحاول مجدداً.", 'error');
     return '';
 }
 
@@ -96,7 +118,6 @@ function compressImageFile(file) {
     });
 }
 
-// معالجة الصور القديمة على دفعات
 export async function compressOldBase64Images() {
     console.log("⏳ بدء ضغط الصور القديمة...");
     let lastDoc = null;
@@ -126,7 +147,7 @@ export async function compressOldBase64Images() {
             lastDoc = snapshot.docs[snapshot.docs.length - 1];
             if (snapshot.docs.length < BATCH_SIZE) hasMore = false;
         }
-        alert(`✅ تم ضغط ${totalUpdated} صورة قديمة بنجاح.`);
+        showToast(`✅ تم ضغط ${totalUpdated} صورة قديمة بنجاح.`, 'success');
     } catch (e) {
         console.error("فشل ضغط الصور القديمة:", e);
     }
@@ -168,11 +189,8 @@ function updateDarkModeIcons(isDark) {
 
 export function loadDarkModePreference() {
     const isDark = localStorage.getItem('alukhowah_dark') === 'true';
-    if (isDark) {
-        document.body.classList.add('dark');
-    } else {
-        document.body.classList.remove('dark');
-    }
+    if (isDark) document.body.classList.add('dark');
+    else document.body.classList.remove('dark');
     updateDarkModeIcons(isDark);
 }
 
@@ -191,6 +209,9 @@ let isLoadingMore = false;
 let hasMoreProducts = true;
 const PAGE_SIZE = 24;
 let unsubscribeProducts = null;
+
+// التخزين المؤقت للفئات
+const categoryCache = {};
 
 // ==================== نظام الدعوة والخصم ====================
 export function getMyReferralCode() {
@@ -213,7 +234,7 @@ export function shareProduct(platform, productName, productPrice) {
     const encoded = encodeURIComponent(message);
 
     if (platform === 'instagram') {
-        navigator.clipboard.writeText(message).then(() => alert('✅ تم نسخ الرابط، الصقه في انستا'));
+        navigator.clipboard.writeText(message).then(() => showToast('✅ تم نسخ الرابط للصقه في انستا', 'success'));
     } else if (platform === 'whatsapp') {
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
     } else if (platform === 'facebook') {
@@ -234,9 +255,7 @@ export function handleReferral() {
         points[ref] = (points[ref] || 0) + 1;
         localStorage.setItem('referralPoints', JSON.stringify(points));
 
-        setTimeout(() => {
-            alert('🎉 مرحباً! تم تفعيل كود الخصم 10% على طلبك الأول فوق 100 TL');
-        }, 500);
+        setTimeout(() => showToast('🎉 مرحباً! تم تفعيل خصم 10% على طلبك الأول فوق 100 TL', 'success'), 500);
     }
 }
 
@@ -278,9 +297,7 @@ export function showReferralCode() {
 }
 
 export function copyReferralCode() {
-    navigator.clipboard.writeText(getMyReferralCode()).then(() => {
-        alert('✅ تم نسخ الكود: ' + getMyReferralCode());
-    });
+    navigator.clipboard.writeText(getMyReferralCode()).then(() => showToast('✅ تم نسخ الكود: ' + getMyReferralCode(), 'success'));
 }
 
 export function shareReferral() {
@@ -293,12 +310,12 @@ export function initReferralSystem() {
     showReferralCode();
 }
 
-// ==================== عرض المنتجات (محسن مع الميزات القديمة) ====================
+// ==================== عرض المنتجات مع التحسينات ====================
 export function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
     if (!items.length) {
-        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:20px;">لا توجد منتجات متوفرة.</p>';
+        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:20px;">لا توجد منتجات متوفرة. <br><button onclick="window.loadProductsByCategory(window.currentCategory)" style="margin-top:10px; padding:8px 20px; background:var(--primary); color:white; border:none; border-radius:20px; cursor:pointer;">🔄 تحميل المنتجات</button></p>';
         updateLoadMoreButtonVisibility(false);
         return;
     }
@@ -334,6 +351,12 @@ export function displayProducts(items) {
             } catch (e) { }
         }
 
+        // نجوم التقييم (وهمية)
+        const rating = p.rating || 0;
+        const starsHTML = Array.from({ length: 5 }, (_, i) => 
+            `<i class="fa-star ${i < rating ? 'fa-solid' : 'fa-regular'}" style="color:#f1c40f;"></i>`
+        ).join('');
+
         const shareBtns = `
             <div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;justify-content:center;">
                 <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
@@ -361,6 +384,7 @@ export function displayProducts(items) {
                         ${discount > 0 ? `<span class="old-price">${originalPrice} TL</span>` : ''}
                         ${finalPrice} TL
                     </div>
+                    <div style="margin:3px 0;">${starsHTML}</div>
                     <span style="background:${badge[1]}; color:#fff; padding:2px 10px; border-radius:12px; font-size:12px; display:inline-block; margin-top:4px;">${badge[0]}</span>
                     ${availabilityDateText}
                 </div>
@@ -368,6 +392,7 @@ export function displayProducts(items) {
                 <button class="btn-add-cart" ${disableAdd ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : `onclick="window.addToCart('${p.id}')"`}>
                     ${disableAdd ? 'غير متوفر' : '+ أضف للسلة'}
                 </button>
+                ${!disableAdd ? `<button class="btn-quick-buy" onclick="window.quickBuy('${p.id}')" style="margin-top:5px; width:100%; padding:5px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer;">⚡ شراء سريع</button>` : ''}
             </div>
         `;
     }).join('');
@@ -392,7 +417,7 @@ function updateLoadMoreButtonVisibility(visible) {
     if (btn) btn.style.display = visible ? 'block' : 'none';
 }
 
-// ==================== الفلاتر والبحث (محسن) ====================
+// ==================== الفلاتر والبحث مع دعم تحميل الفئة ====================
 export function applyFilters() {
     let filtered = globalProducts;
     if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
@@ -403,11 +428,38 @@ export function applyFilters() {
     displayProducts(filtered);
 }
 
-export function filterByCategory(cat, element) {
+export async function filterByCategory(cat, element) {
     document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
     if (element) element.classList.add('active');
     currentCategory = cat;
+
+    if (cat !== 'all' && !categoryCache[cat] && globalProducts.filter(p => p.category === cat).length === 0) {
+        // تحميل منتجات الفئة من قاعدة البيانات
+        await loadProductsByCategory(cat);
+    }
     applyFilters();
+}
+
+async function loadProductsByCategory(category) {
+    showToast(`جاري تحميل منتجات ${category}...`, 'info');
+    try {
+        const q = query(collection(db, "products"), where("category", "==", category), orderBy("createdAt", "desc"), limit(50));
+        const snapshot = await getDocs(q);
+        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // إضافتها للقائمة العامة مع تجنب التكرار
+        const existingIds = new Set(globalProducts.map(p => p.id));
+        products.forEach(p => {
+            if (!existingIds.has(p.id)) {
+                globalProducts.push(p);
+                existingIds.add(p.id);
+            }
+        });
+        categoryCache[category] = true;
+        showToast(`✅ تم تحميل ${products.length} منتج`, 'success');
+    } catch (error) {
+        console.error("خطأ في تحميل الفئة:", error);
+        showToast("فشل تحميل المنتجات", 'error');
+    }
 }
 
 let searchTimeout;
@@ -427,24 +479,16 @@ function getFavorites() {
 export function toggleFavorite(productId, btnElement) {
     let favs = getFavorites();
     const isFav = favs.includes(productId);
-    if (isFav) {
-        favs = favs.filter(id => id !== productId);
-    } else {
-        favs.push(productId);
-    }
+    if (isFav) favs = favs.filter(id => id !== productId);
+    else favs.push(productId);
     localStorage.setItem('alukhowah_favs', JSON.stringify(favs));
 
     if (btnElement) {
         btnElement.classList.toggle('active', !isFav);
-    } else {
-        // تحديث جميع البطاقات التي تحمل نفس المنتج
-        document.querySelectorAll(`.product-card .fav-btn[onclick*="'${productId}'"]`).forEach(btn => {
-            btn.classList.toggle('active', !isFav);
-        });
     }
 }
 
-// ==================== إدارة السلة (محفوظة) ====================
+// ==================== إدارة السلة المتقدمة ====================
 function loadCartFromStorage() {
     try { return JSON.parse(localStorage.getItem('cart') || '[]'); } catch { return []; }
 }
@@ -462,7 +506,7 @@ export function updateCartBadge() {
 export function addToCart(productId) {
     const product = globalProducts.find(p => p.id === productId);
     if (!product || product.availability === 'غير متوفر') {
-        alert('❌ هذا المنتج غير متوفر حالياً.');
+        showToast('❌ هذا المنتج غير متوفر حالياً.', 'error');
         return;
     }
     if (product.category === 'شحن ألعاب') {
@@ -488,17 +532,29 @@ export function addToCart(productId) {
     }
     saveCartToStorage();
     updateCartBadge();
+    showToast(`✅ تمت إضافة ${product.name} إلى السلة`, 'success');
+}
+
+export function quickBuy(productId) {
+    addToCart(productId);
+    toggleCartModal();
+    // التمرير إلى نموذج الطلب
+    document.getElementById('checkoutForm')?.scrollIntoView({ behavior: 'smooth' });
 }
 
 function redirectToWhatsApp(product) {
     const numbers = ['905511455598', '905385844122', '905511591245'];
     const number = numbers[Math.floor(Math.random() * numbers.length)];
-    const discount = Number(product.discount) || 0;
-    const basePrice = Number(product.price) || 0;
-    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+    const finalPrice = calculateProductFinalPrice(product);
     const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${finalPrice} TL\nالرجاء إرسال تفاصيل الدفع`;
     window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank');
-    alert('✅ تم تحويلك إلى واتساب لإتمام عملية شحن اللعبة');
+    showToast('✅ تم تحويلك إلى واتساب لإتمام عملية الشحن', 'success');
+}
+
+function calculateProductFinalPrice(product) {
+    const discount = Number(product.discount) || 0;
+    const base = Number(product.price) || 0;
+    return discount > 0 ? Math.round(base - (base * discount / 100)) : base;
 }
 
 export function changeQty(productId, delta) {
@@ -615,7 +671,7 @@ export function initCheckoutForm() {
         if (isSubmitting || cart.length === 0) return;
         const btn = document.getElementById('submitBtn');
         isSubmitting = true;
-        btn.textContent = 'جاري إرسال الطلب...';
+        btn.textContent = 'جاري الإرسال...';
         btn.disabled = true;
 
         const phone = document.getElementById('userPhone')?.value.trim() || '';
@@ -637,7 +693,7 @@ export function initCheckoutForm() {
                 date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                 createdAt: serverTimestamp()
             });
-            alert(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${Math.round(calc.finalTotal)} TL`);
+            showToast(`✅ تم إرسال طلبك بنجاح! الإجمالي: ${Math.round(calc.finalTotal)} TL`, 'success');
             cart = [];
             saveCartToStorage();
             updateCartBadge();
@@ -645,7 +701,7 @@ export function initCheckoutForm() {
             toggleCartModal();
             form.reset();
         } catch (err) {
-            alert('❌ حدث خطأ: ' + err.message);
+            showToast('❌ حدث خطأ: ' + err.message, 'error');
         } finally {
             isSubmitting = false;
             btn.textContent = '🚀 تأكيد الطلب';
@@ -660,12 +716,12 @@ export function toggleInfoModal() {
     if (modal) modal.classList.toggle('open');
 }
 
-// ==================== تحميل المنتجات (تدريجي) ====================
+// ==================== تحميل المنتجات الرئيسي (مع دعم زر يدوي) ====================
 export async function initProductsListener() {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
 
-    // إلغاء أي اشتراك قديم (احتياطي)
+    // إلغاء أي اشتراك قديم
     if (unsubscribeProducts) {
         unsubscribeProducts();
         unsubscribeProducts = null;
@@ -682,7 +738,7 @@ export async function initProductsListener() {
         applyFilters();
     } catch (error) {
         console.error("خطأ تحميل المنتجات:", error);
-        grid.innerHTML = '<p style="color:red; text-align:center;">تعذر تحميل المنتجات.</p>';
+        grid.innerHTML = '<p style="color:red; text-align:center;">تعذر تحميل المنتجات. <button onclick="window.initProductsListener()">إعادة المحاولة</button></p>';
     }
 }
 
@@ -706,11 +762,52 @@ export async function loadMoreProducts() {
         }
     } catch (e) {
         console.error("خطأ في جلب المزيد:", e);
+        showToast("فشل تحميل المزيد", 'error');
     } finally {
         isLoadingMore = false;
         if (btn) btn.textContent = 'عرض المزيد من المنتجات';
         updateLoadMoreButtonVisibility(hasMoreProducts);
     }
+}
+
+// ==================== دوال الإدارة (لإصلاح خطأ عدم الفتح) ====================
+export async function deleteProduct(productId) {
+    if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+        try {
+            await deleteDoc(doc(db, "products", productId));
+            showToast('تم الحذف بنجاح', 'success');
+            // تحديث القائمة
+            globalProducts = globalProducts.filter(p => p.id !== productId);
+            applyFilters();
+        } catch (e) {
+            showToast('فشل الحذف: ' + e.message, 'error');
+        }
+    }
+}
+
+export async function updateProduct(productId, newData) {
+    try {
+        await updateDoc(doc(db, "products", productId), newData);
+        showToast('تم التحديث بنجاح', 'success');
+    } catch (e) {
+        showToast('فشل التحديث: ' + e.message, 'error');
+    }
+}
+
+// ==================== بحث صوتي (ميزة جديدة) ====================
+export function startVoiceSearch() {
+    if (!('webkitSpeechRecognition' in window)) {
+        showToast('المتصفح لا يدعم البحث الصوتي', 'error');
+        return;
+    }
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'ar-EG';
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('searchInput').value = transcript;
+        filterBySearch(transcript);
+    };
+    recognition.start();
 }
 
 // ==================== تهيئة الصفحة الرئيسية ====================
@@ -758,7 +855,7 @@ export function initMainPage() {
     initReferralSystem();
     updateCartBadge();
 
-    // ربط الدوال العامة
+    // ربط الدوال العامة (بما فيها دوال الإدارة)
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.changeQty = changeQty;
@@ -776,7 +873,19 @@ export function initMainPage() {
     window.getMyReferralCode = getMyReferralCode;
     window.loadMoreProducts = loadMoreProducts;
     window.toggleDarkMode = toggleDarkMode;
+    window.loadProductsByCategory = loadProductsByCategory;
+    window.quickBuy = quickBuy;
+    window.deleteProduct = deleteProduct;
+    window.updateProduct = updateProduct;
+    window.startVoiceSearch = startVoiceSearch;
+    window.currentCategory = currentCategory; // هام للزر
 }
 
-// ==================== تصديرات Firestore ====================
-export { db, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy, serverTimestamp };
+// تشغيل التهيئة تلقائيًا عند تحميل الصفحة
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMainPage);
+} else {
+    initMainPage();
+}
+
+export { db, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch };

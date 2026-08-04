@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
     getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
-    query, where, orderBy, limit, serverTimestamp, getDocs, startAfter
+    query, where, orderBy, limit, serverTimestamp, getDocs, startAfter, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // ==================== تهيئة Firebase ====================
@@ -197,6 +197,8 @@ let isFullLoadInProgress = false;
 const CATEGORY_PAGE_SIZE = 15;
 
 let scrollObserver = null;
+const ADMIN_PASSWORD = "admin"; // كلمة سر الإدارة
+let ordersUnsubscribe = null;
 
 // ==================== نظام الدعوة والخصومات ====================
 export function getMyReferralCode() {
@@ -316,6 +318,9 @@ function generateProductCardHTML(p, favs) {
         </div>
         <button class="btn-add-cart" ${disableAdd ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : `onclick="window.addToCart('${p.id}')"`}>${disableAdd ? 'غير متوفر' : '+ أضف للسلة'}</button>
         ${!disableAdd ? `<button class="btn-quick-buy" onclick="window.quickBuy('${p.id}')" style="margin-top:5px; width:100%; padding:5px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer;">⚡ شراء سريع</button>` : ''}
+        <div class="admin-actions" style="margin-top:8px; display:flex; gap:5px;">
+            <button onclick="window.deleteProduct('${p.id}')" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; flex:1; font-size:12px;">🗑️ حذف</button>
+        </div>
     `;
 }
 
@@ -323,9 +328,7 @@ export function displayProducts(items) {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
     if (!items.length) {
-        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; padding:30px;">
-            لا توجد منتجات مطابقة لهذا القسم.
-        </p>`;
+        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; padding:30px;">لا توجد منتجات مطابقة لهذا القسم.</p>`;
         return;
     }
 
@@ -474,7 +477,7 @@ export function filterBySearch(queryStr) {
     }, 300);
 }
 
-// ==================== تحسين التمرير السلس (IntersectionObserver) ====================
+// ==================== تحسين التمرير السلس ====================
 function setupIntersectionObserver() {
     if (scrollObserver) scrollObserver.disconnect();
     
@@ -646,6 +649,7 @@ export function initCheckoutForm() {
                 total: Math.round(calc.finalTotal), itemsTotal: calc.itemsTotal,
                 smartDiscount: Math.round(calc.smartDiscountAmount), referralDiscount: Math.round(calc.referralDiscount),
                 deliveryCost: calc.deliveryCost, deliveryType: currentDeliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${currentDeliveryKm} كم)`,
+                status: 'pending',
                 date: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
                 createdAt: serverTimestamp()
             });
@@ -664,18 +668,77 @@ export function toggleInfoModal() {
     if (modal) modal.classList.toggle('open');
 }
 
-// ==================== تهيئة التحميل الأولي ====================
-export async function initProductsListener() {
-    const firstChip = document.querySelector('.cat-chip:not([data-category="all"])');
-    const defaultCat = firstChip?.getAttribute('data-category') || firstChip?.dataset?.category || 'خضار وفواكه';
-    if (firstChip) firstChip.classList.add('active');
-    await filterByCategory(defaultCat, firstChip);
-}
-
-// ==================== دوال الإدارة المباشرة (غرفة الإدارة) ====================
+// ==================== غرفة الإدارة ومتابعة الطلبات المباشرة ====================
 export function toggleAdminModal() {
     const modal = document.getElementById('adminModal');
-    if (modal) modal.classList.toggle('open');
+    if (!modal) return showToast('❌ لم يتم العثور على عنصر غرفة الإدارة (adminModal)', 'error');
+    
+    if (!modal.classList.contains('open')) {
+        const pass = prompt('🔑 أدخل كلمة سر الإدارة:');
+        if (pass === ADMIN_PASSWORD) {
+            modal.classList.add('open');
+            showToast('✅ مرحباً بك في غرفة الإدارة', 'success');
+            listenToLiveOrders();
+        } else if (pass !== null) {
+            showToast('❌ كلمة السر غير صحيحة', 'error');
+        }
+    } else {
+        modal.classList.remove('open');
+        if (ordersUnsubscribe) { ordersUnsubscribe(); ordersUnsubscribe = null; }
+    }
+}
+
+function listenToLiveOrders() {
+    const container = document.getElementById('adminOrdersContainer');
+    if (!container) return;
+
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(20));
+    ordersUnsubscribe = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            container.innerHTML = '<p style="text-align:center; padding:15px; color:#777;">لا توجد طلبات أخيرًا.</p>';
+            return;
+        }
+
+        container.innerHTML = snapshot.docs.map(docSnap => {
+            const data = docSnap.id ? docSnap.data() : {};
+            const id = docSnap.id;
+            const statusMap = { 'pending': '⏳ قيد الانتظار', 'delivering': '🚚 جاري التوصيل', 'completed': '✅ مكتمل' };
+            const statusColor = { 'pending': '#f39c12', 'delivering': '#3498db', 'completed': '#2ecc71' };
+
+            return `
+                <div style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; background:var(--card-bg);">
+                    <div style="display:flex; justify-style:space-between; justify-content:space-between; align-items:center;">
+                        <strong>📞 ${escapeHTML(data.phone || 'بدون رقم')}</strong>
+                        <span style="background:${statusColor[data.status || 'pending']}; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">${statusMap[data.status || 'pending']}</span>
+                    </div>
+                    <p style="font-size:13px; margin:5px 0;"><strong>📍 العنوان:</strong> ${escapeHTML(data.address || 'بدون عنوان')}</p>
+                    <p style="font-size:13px; margin:5px 0;"><strong>🛒 المنتجات:</strong> ${escapeHTML(data.items || '')}</p>
+                    <p style="font-size:14px; margin:5px 0; color:var(--primary);"><strong>💰 الإجمالي:</strong> ${data.total || 0} TL</p>
+                    <div style="display:flex; gap:5px; margin-top:8px;">
+                        <button onclick="window.updateOrderStatus('${id}', 'delivering')" style="background:#3498db; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">توصيل</button>
+                        <button onclick="window.updateOrderStatus('${id}', 'completed')" style="background:#2ecc71; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">إكتمال</button>
+                        <button onclick="window.deleteOrder('${id}')" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">حذف</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    });
+}
+
+export async function updateOrderStatus(orderId, status) {
+    try {
+        await updateDoc(doc(db, "orders", orderId), { status });
+        showToast('تم تحديث حالة الطلب بنجاح', 'success');
+    } catch (e) { showToast('فشل تحديث الحالة: ' + e.message, 'error'); }
+}
+
+export async function deleteOrder(orderId) {
+    if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
+        try {
+            await deleteDoc(doc(db, "orders", orderId));
+            showToast('تم حذف الطلب', 'success');
+        } catch (e) { showToast('فشل حذف الطلب: ' + e.message, 'error'); }
+    }
 }
 
 export async function addProduct(productData) {
@@ -708,16 +771,12 @@ export async function addProduct(productData) {
 export async function deleteProduct(productId) {
     if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
         try {
-            const deletedProduct = globalProducts.find(p => p.id === productId);
             await deleteDoc(doc(db, "products", productId));
             globalProducts = globalProducts.filter(p => p.id !== productId);
             
             const cardEl = document.getElementById(`product-card-${productId}`);
-            if (cardEl) {
-                cardEl.remove();
-            } else {
-                applyFilters();
-            }
+            if (cardEl) cardEl.remove();
+            else applyFilters();
             
             showToast('تم الحذف بنجاح', 'success');
         } catch (e) { showToast('فشل الحذف: ' + e.message, 'error'); }
@@ -739,13 +798,9 @@ export async function updateProduct(productId, newData) {
                 delete categoryCache[newData.category];
                 applyFilters();
             } else {
-                // تحديث كارت المنتج المباشر لتفادي الرفرفة
                 const cardEl = document.getElementById(`product-card-${productId}`);
-                if (cardEl) {
-                    cardEl.innerHTML = generateProductCardHTML(product, getFavorites());
-                } else {
-                    applyFilters();
-                }
+                if (cardEl) cardEl.innerHTML = generateProductCardHTML(product, getFavorites());
+                else applyFilters();
             }
         }
         showToast('تم التحديث بنجاح', 'success');
@@ -767,6 +822,14 @@ export function startVoiceSearch() {
         recognition.onerror = () => showToast('حدث خطأ أثناء التعرف على الصوت', 'error');
         recognition.start();
     } catch (err) { showToast('تعذر تشغيل البحث الصوتي', 'error'); }
+}
+
+// ==================== تهيئة التحميل الأولي ====================
+export async function initProductsListener() {
+    const firstChip = document.querySelector('.cat-chip:not([data-category="all"])');
+    const defaultCat = firstChip?.getAttribute('data-category') || firstChip?.dataset?.category || 'خضار وفواكه';
+    if (firstChip) firstChip.classList.add('active');
+    await filterByCategory(defaultCat, firstChip);
 }
 
 // ==================== تهيئة التطبيق وتصدير النافذة العامّة ====================
@@ -797,13 +860,14 @@ export function initMainPage() {
     initReferralSystem();
     updateCartBadge();
 
+    // تصدير الشامل لجميع الدوال لضمان توافق أزرار الـ HTML
     Object.assign(window, {
         toggleFavorite, addToCart, changeQty, removeFromCart, toggleCartModal,
         filterByCategory, filterBySearch, uploadImageToImgBB, compressOldBase64Images,
         updateDelivery, toggleInfoModal, shareProduct, copyReferralCode, shareReferral,
         getMyReferralCode, toggleDarkMode, loadProductsByCategory,
         quickBuy, deleteProduct, updateProduct, addProduct, startVoiceSearch, initProductsListener,
-        toggleAdminModal
+        toggleAdminModal, updateOrderStatus, deleteOrder
     });
 }
 

@@ -36,7 +36,7 @@ export function escapeHTML(str) {
 }
 
 // ==================== إدارة الصور ====================
-const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70";
+const IMGBB_API_KEY = "42b6820dc31a25d977adefc41f83aa70"; // يُنقل للخادم لاحقاً
 const MAX_UPLOAD_SIZE_MB = 15;
 const IMAGE_MAX_WIDTH = 600;
 const JPEG_QUALITY = 0.7;
@@ -96,6 +96,7 @@ function compressImageFile(file) {
     });
 }
 
+// معالجة الصور القديمة على دفعات
 export async function compressOldBase64Images() {
     console.log("⏳ بدء ضغط الصور القديمة...");
     let lastDoc = null;
@@ -152,7 +153,30 @@ function compressBase64ToJPEG(base64, maxWidth, quality) {
     });
 }
 
-// ==================== الحالة العامة ====================
+// ==================== إدارة المظهر الداكن ====================
+export function toggleDarkMode() {
+    const isDark = document.body.classList.toggle('dark');
+    localStorage.setItem('alukhowah_dark', isDark ? 'true' : 'false');
+    updateDarkModeIcons(isDark);
+}
+
+function updateDarkModeIcons(isDark) {
+    document.querySelectorAll('.dark-toggle i, #adminDarkIcon, #darkModeIcon, .dark-mode-icon').forEach(icon => {
+        icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    });
+}
+
+export function loadDarkModePreference() {
+    const isDark = localStorage.getItem('alukhowah_dark') === 'true';
+    if (isDark) {
+        document.body.classList.add('dark');
+    } else {
+        document.body.classList.remove('dark');
+    }
+    updateDarkModeIcons(isDark);
+}
+
+// ==================== حالة التطبيق ====================
 let globalProducts = [];
 let cart = loadCartFromStorage();
 let isSubmitting = false;
@@ -161,18 +185,268 @@ let currentSearch = '';
 let currentDeliveryType = 'inside';
 let currentDeliveryKm = 1;
 
-// إدارة تحميل المزيد من المنتجات (Pagination)
+// التحميل التدريجي
 let lastVisibleProduct = null;
 let isLoadingMore = false;
 let hasMoreProducts = true;
 const PAGE_SIZE = 24;
+let unsubscribeProducts = null;
 
-// ==================== إدارة السلة ====================
+// ==================== نظام الدعوة والخصم ====================
+export function getMyReferralCode() {
+    let code = localStorage.getItem('myReferralCode');
+    if (!code) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+        localStorage.setItem('myReferralCode', code);
+    }
+    return code;
+}
+
+export function getInviteLink() {
+    return `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
+}
+
+export function shareProduct(platform, productName, productPrice) {
+    const code = getMyReferralCode();
+    const message = `🛍️ ${productName}\n💰 ${productPrice} TL\n🎁 كود خصم 10%: ${code}\n📱 ${window.location.href}`;
+    const encoded = encodeURIComponent(message);
+
+    if (platform === 'instagram') {
+        navigator.clipboard.writeText(message).then(() => alert('✅ تم نسخ الرابط، الصقه في انستا'));
+    } else if (platform === 'whatsapp') {
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    } else if (platform === 'facebook') {
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encoded}`, '_blank');
+    }
+}
+
+export function handleReferral() {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    const myCode = getMyReferralCode();
+
+    if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
+        localStorage.setItem('invitedBy', ref);
+        localStorage.setItem('referralUsed', 'true');
+
+        let points = JSON.parse(localStorage.getItem('referralPoints') || '{}');
+        points[ref] = (points[ref] || 0) + 1;
+        localStorage.setItem('referralPoints', JSON.stringify(points));
+
+        setTimeout(() => {
+            alert('🎉 مرحباً! تم تفعيل كود الخصم 10% على طلبك الأول فوق 100 TL');
+        }, 500);
+    }
+}
+
+export function getReferralDiscount(total) {
+    if (total < 100) return 0;
+    if (!localStorage.getItem('invitedBy')) return 0;
+    if (localStorage.getItem('discountApplied')) return 0;
+    return total * 0.10;
+}
+
+export function applyReferralDiscount(total) {
+    const discount = getReferralDiscount(total);
+    if (discount > 0) localStorage.setItem('discountApplied', 'true');
+    return discount;
+}
+
+export function showReferralCode() {
+    const code = getMyReferralCode();
+    const container = document.getElementById('referralContainer');
+    if (container) {
+        container.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                <div>
+                    <span style="font-weight:bold;">🎁 كود الخصم: </span>
+                    <strong style="font-size:20px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg);padding:4px 12px;border-radius:6px;">${code}</strong>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="window.copyReferralCode()" style="background:#4CAF50;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">
+                        <i class="fa-regular fa-copy"></i> نسخ
+                    </button>
+                    <button onclick="window.shareReferral()" style="background:#25D366;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">
+                        <i class="fa-brands fa-whatsapp"></i> مشاركة
+                    </button>
+                </div>
+            </div>
+            <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على 10% خصم لأول طلب فوق 100 TL</p>
+        `;
+    }
+}
+
+export function copyReferralCode() {
+    navigator.clipboard.writeText(getMyReferralCode()).then(() => {
+        alert('✅ تم نسخ الكود: ' + getMyReferralCode());
+    });
+}
+
+export function shareReferral() {
+    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على 10% خصم: ${getMyReferralCode()}\n📱 ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+}
+
+export function initReferralSystem() {
+    handleReferral();
+    showReferralCode();
+}
+
+// ==================== عرض المنتجات (محسن مع الميزات القديمة) ====================
+export function displayProducts(items) {
+    const grid = document.getElementById('productsGrid');
+    if (!grid) return;
+    if (!items.length) {
+        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:20px;">لا توجد منتجات متوفرة.</p>';
+        updateLoadMoreButtonVisibility(false);
+        return;
+    }
+
+    const favs = getFavorites();
+    grid.innerHTML = items.map(p => {
+        const isFav = favs.includes(p.id);
+        const imgUrl = String(p.imageUrl || '').trim();
+        const isValidImg = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
+        const imageHTML = isValidImg
+            ? `<img src="${escapeHTML(imgUrl)}" alt="${escapeHTML(p.name)}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+               <div class="no-img-fallback" style="display:none;"><i class="fa-solid fa-basket-shopping"></i></div>`
+            : `<div class="no-img-fallback"><i class="fa-solid fa-basket-shopping"></i></div>`;
+
+        const discount = Number(p.discount) || 0;
+        const originalPrice = Number(p.price) || 0;
+        const finalPrice = discount > 0 ? Math.round(originalPrice - (originalPrice * discount / 100)) : originalPrice;
+        const availability = p.availability || 'متوفر';
+        const badges = {
+            'غير متوفر': ['❌ غير متوفر', '#e74c3c'],
+            'محدود': ['⚠️ محدود', '#f39c12']
+        };
+        const badge = badges[availability] || ['✅ متوفر', '#2ecc71'];
+        const disableAdd = availability === 'غير متوفر';
+
+        let availabilityDateText = '';
+        if (p.availabilityDate) {
+            try {
+                const dateObj = p.availabilityDate.toDate ? p.availabilityDate.toDate() : new Date(p.availabilityDate);
+                if (!isNaN(dateObj.getTime())) {
+                    availabilityDateText = `<div style="font-size:11px;color:#888;margin:2px 0;">📅 متاح من: ${dateObj.toLocaleDateString('ar-EG')}</div>`;
+                }
+            } catch (e) { }
+        }
+
+        const shareBtns = `
+            <div class="share-buttons" style="display:flex;gap:8px;margin:5px 0;justify-content:center;">
+                <button onclick="window.shareProduct('whatsapp', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                    <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i>
+                </button>
+                <button onclick="window.shareProduct('facebook', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                    <i class="fa-brands fa-facebook" style="color:#1877F2;"></i>
+                </button>
+                <button onclick="window.shareProduct('instagram', '${escapeHTML(p.name)}', '${finalPrice} TL')" style="background:none;border:none;font-size:18px;cursor:pointer;">
+                    <i class="fa-brands fa-instagram" style="color:#E4405F;"></i>
+                </button>
+            </div>
+        `;
+
+        return `
+            <div class="product-card" id="product-card-${p.id}">
+                ${discount > 0 ? `<span class="discount-badge">-${discount}%</span>` : ''}
+                <div class="fav-btn ${isFav ? 'active' : ''}" onclick="window.toggleFavorite('${p.id}', this)">
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+                <div class="product-img">${imageHTML}</div>
+                <div class="product-info">
+                    <div class="product-title">${escapeHTML(p.name)}</div>
+                    <div class="product-price">
+                        ${discount > 0 ? `<span class="old-price">${originalPrice} TL</span>` : ''}
+                        ${finalPrice} TL
+                    </div>
+                    <span style="background:${badge[1]}; color:#fff; padding:2px 10px; border-radius:12px; font-size:12px; display:inline-block; margin-top:4px;">${badge[0]}</span>
+                    ${availabilityDateText}
+                </div>
+                ${shareBtns}
+                <button class="btn-add-cart" ${disableAdd ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : `onclick="window.addToCart('${p.id}')"`}>
+                    ${disableAdd ? 'غير متوفر' : '+ أضف للسلة'}
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    updateLoadMoreButtonVisibility(hasMoreProducts && currentCategory === 'all' && !currentSearch.trim());
+}
+
+function updateLoadMoreButtonVisibility(visible) {
+    let btn = document.getElementById('loadMoreBtn');
+    if (!btn && visible) {
+        const grid = document.getElementById('productsGrid');
+        if (grid && grid.parentElement) {
+            btn = document.createElement('button');
+            btn.id = 'loadMoreBtn';
+            btn.className = 'btn-load-more';
+            btn.style.cssText = 'display:block; margin:20px auto; padding:10px 25px; background:var(--primary, #007bff); color:#fff; border:none; border-radius:20px; font-weight:bold; cursor:pointer;';
+            btn.textContent = 'عرض المزيد من المنتجات';
+            btn.onclick = () => loadMoreProducts();
+            grid.parentElement.appendChild(btn);
+        }
+    }
+    if (btn) btn.style.display = visible ? 'block' : 'none';
+}
+
+// ==================== الفلاتر والبحث (محسن) ====================
+export function applyFilters() {
+    let filtered = globalProducts;
+    if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
+    if (currentSearch.trim()) {
+        const searchLower = currentSearch.toLowerCase();
+        filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(searchLower));
+    }
+    displayProducts(filtered);
+}
+
+export function filterByCategory(cat, element) {
+    document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+    if (element) element.classList.add('active');
+    currentCategory = cat;
+    applyFilters();
+}
+
+let searchTimeout;
+export function filterBySearch(queryStr) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        currentSearch = queryStr;
+        applyFilters();
+    }, 250);
+}
+
+// ==================== المفضلة (تحديث موضعي) ====================
+function getFavorites() {
+    try { return JSON.parse(localStorage.getItem('alukhowah_favs') || '[]'); } catch { return []; }
+}
+
+export function toggleFavorite(productId, btnElement) {
+    let favs = getFavorites();
+    const isFav = favs.includes(productId);
+    if (isFav) {
+        favs = favs.filter(id => id !== productId);
+    } else {
+        favs.push(productId);
+    }
+    localStorage.setItem('alukhowah_favs', JSON.stringify(favs));
+
+    if (btnElement) {
+        btnElement.classList.toggle('active', !isFav);
+    } else {
+        // تحديث جميع البطاقات التي تحمل نفس المنتج
+        document.querySelectorAll(`.product-card .fav-btn[onclick*="'${productId}'"]`).forEach(btn => {
+            btn.classList.toggle('active', !isFav);
+        });
+    }
+}
+
+// ==================== إدارة السلة (محفوظة) ====================
 function loadCartFromStorage() {
-    try {
-        const stored = localStorage.getItem('cart');
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('cart') || '[]'); } catch { return []; }
 }
 
 function saveCartToStorage() {
@@ -181,9 +455,8 @@ function saveCartToStorage() {
 
 export function updateCartBadge() {
     const total = cart.reduce((sum, item) => sum + item.qty, 0);
-    document.querySelectorAll('#cartCount, .cart-count-badge').forEach(badge => {
-        if (badge) badge.textContent = total;
-    });
+    const badge = document.getElementById('cartCount');
+    if (badge) badge.textContent = total;
 }
 
 export function addToCart(productId) {
@@ -204,7 +477,7 @@ export function addToCart(productId) {
         const discount = Number(product.discount) || 0;
         const basePrice = Number(product.price) || 0;
         const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
-        cart.push({ 
+        cart.push({
             id: product.id,
             name: product.name,
             price: finalPrice,
@@ -215,6 +488,17 @@ export function addToCart(productId) {
     }
     saveCartToStorage();
     updateCartBadge();
+}
+
+function redirectToWhatsApp(product) {
+    const numbers = ['905511455598', '905385844122', '905511591245'];
+    const number = numbers[Math.floor(Math.random() * numbers.length)];
+    const discount = Number(product.discount) || 0;
+    const basePrice = Number(product.price) || 0;
+    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+    const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${finalPrice} TL\nالرجاء إرسال تفاصيل الدفع`;
+    window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank');
+    alert('✅ تم تحويلك إلى واتساب لإتمام عملية شحن اللعبة');
 }
 
 export function changeQty(productId, delta) {
@@ -234,21 +518,7 @@ export function removeFromCart(productId) {
     renderCartItems();
 }
 
-function redirectToWhatsApp(product) {
-    const numbers = ['905511455598', '905385844122', '905511591245'];
-    const number = numbers[Math.floor(Math.random() * numbers.length)];
-    const price = calculateProductFinalPrice(product);
-    const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${price} TL\nالرجاء إرسال تفاصيل الدفع`;
-    window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, '_blank');
-}
-
-function calculateProductFinalPrice(product) {
-    const discount = Number(product.discount) || 0;
-    const base = Number(product.price) || 0;
-    return discount > 0 ? Math.round(base - (base * discount / 100)) : base;
-}
-
-// ==================== حساب التوصيل والإجمالي ====================
+// ==================== الحسابات والتوصيل ====================
 export function updateDelivery() {
     const typeEl = document.getElementById('deliveryType');
     const kmContainer = document.getElementById('kmInputContainer');
@@ -271,7 +541,6 @@ function calculateFinalTotal() {
     discountedTotal -= referralDiscount;
 
     const deliveryCost = currentDeliveryType === 'inside' ? 100 : (currentDeliveryKm || 1) * 35;
-    
     return {
         itemsTotal,
         smartDiscountPercent,
@@ -283,7 +552,17 @@ function calculateFinalTotal() {
     };
 }
 
-// ==================== عرض السلة ====================
+// ==================== عرض السلة والمودال ====================
+export function toggleCartModal() {
+    const modal = document.getElementById('cartModal');
+    if (!modal) return;
+    modal.classList.toggle('open');
+    if (modal.classList.contains('open')) {
+        updateDelivery();
+        renderCartItems();
+    }
+}
+
 export function renderCartItems() {
     const container = document.getElementById('cartItemsContainer');
     const summaryDiv = document.getElementById('cartSummary');
@@ -336,7 +615,7 @@ export function initCheckoutForm() {
         if (isSubmitting || cart.length === 0) return;
         const btn = document.getElementById('submitBtn');
         isSubmitting = true;
-        btn.textContent = 'جاري الإرسال...';
+        btn.textContent = 'جاري إرسال الطلب...';
         btn.disabled = true;
 
         const phone = document.getElementById('userPhone')?.value.trim() || '';
@@ -375,162 +654,26 @@ export function initCheckoutForm() {
     });
 }
 
-// ==================== الإحالة والخصم ====================
-export function getMyReferralCode() {
-    let code = localStorage.getItem('myReferralCode');
-    if (!code) {
-        code = Array.from({ length: 6 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
-        localStorage.setItem('myReferralCode', code);
-    }
-    return code;
+// ==================== مودال المعلومات ====================
+export function toggleInfoModal() {
+    const modal = document.getElementById('infoModal');
+    if (modal) modal.classList.toggle('open');
 }
 
-function getReferralDiscount(total) {
-    if (total < 100 || !localStorage.getItem('invitedBy') || localStorage.getItem('discountApplied')) return 0;
-    return total * 0.10;
-}
-
-export function handleReferral() {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    const myCode = getMyReferralCode();
-    if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
-        localStorage.setItem('invitedBy', ref);
-        localStorage.setItem('referralUsed', 'true');
-        setTimeout(() => alert('🎉 مرحباً! تم تفعيل خصم 10% على طلبك الأول فوق 100 TL.'), 500);
-    }
-}
-
-// ==================== عرض المنتجات والفلاتر ====================
-export function displayProducts(items) {
-    const grid = document.getElementById('productsGrid');
-    if (!grid) return;
-    if (!items.length) {
-        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:20px;">لا توجد منتجات متوفرة.</p>';
-        updateLoadMoreButtonVisibility(false);
-        return;
-    }
-
-    const favs = getFavorites();
-    grid.innerHTML = items.map(p => {
-        const isFav = favs.includes(p.id);
-        const imgUrl = String(p.imageUrl || '').trim();
-        const isValidImg = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
-        const imageHTML = isValidImg
-            ? `<img src="${escapeHTML(imgUrl)}" alt="${escapeHTML(p.name)}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
-               <div class="no-img-fallback" style="display:none;"><i class="fa-solid fa-basket-shopping"></i></div>`
-            : `<div class="no-img-fallback"><i class="fa-solid fa-basket-shopping"></i></div>`;
-
-        const discount = Number(p.discount) || 0;
-        const originalPrice = Number(p.price) || 0;
-        const finalPrice = discount > 0 ? Math.round(originalPrice - (originalPrice * discount / 100)) : originalPrice;
-        const availability = p.availability || 'متوفر';
-        const badges = {
-            'غير متوفر': ['❌ غير متوفر', '#e74c3c'],
-            'محدود': ['⚠️ محدود', '#f39c12']
-        };
-        const badge = badges[availability] || ['✅ متوفر', '#2ecc71'];
-        const disableAdd = availability === 'غير متوفر';
-
-        return `
-            <div class="product-card" id="product-card-${p.id}">
-                ${discount > 0 ? `<span class="discount-badge">-${discount}%</span>` : ''}
-                <div class="fav-btn ${isFav ? 'active' : ''}" onclick="window.toggleFavorite('${p.id}', this)">
-                    <i class="fa-solid fa-heart"></i>
-                </div>
-                <div class="product-img">${imageHTML}</div>
-                <div class="product-info">
-                    <div class="product-title">${escapeHTML(p.name)}</div>
-                    <div class="product-price">
-                        ${discount > 0 ? `<span class="old-price">${originalPrice} TL</span>` : ''}
-                        ${finalPrice} TL
-                    </div>
-                    <span style="background:${badge[1]}; color:#fff; padding:2px 10px; border-radius:12px; font-size:12px; display:inline-block; margin-top:4px;">${badge[0]}</span>
-                </div>
-                <button class="btn-add-cart" ${disableAdd ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : `onclick="window.addToCart('${p.id}')"`}>
-                    ${disableAdd ? 'غير متوفر' : '+ أضف للسلة'}
-                </button>
-            </div>
-        `;
-    }).join('');
-
-    updateLoadMoreButtonVisibility(hasMoreProducts && currentCategory === 'all' && !currentSearch.trim());
-}
-
-function updateLoadMoreButtonVisibility(visible) {
-    let btn = document.getElementById('loadMoreBtn');
-    if (!btn && visible) {
-        const grid = document.getElementById('productsGrid');
-        if (grid && grid.parentElement) {
-            btn = document.createElement('button');
-            btn.id = 'loadMoreBtn';
-            btn.className = 'btn-load-more';
-            btn.style.cssText = 'display:block; margin:20px auto; padding:10px 25px; background:var(--primary, #007bff); color:#fff; border:none; border-radius:20px; font-weight:bold; cursor:pointer;';
-            btn.textContent = 'عرض المزيد من المنتجات';
-            btn.onclick = () => loadMoreProducts();
-            grid.parentElement.appendChild(btn);
-        }
-    }
-    if (btn) btn.style.display = visible ? 'block' : 'none';
-}
-
-export function applyFilters() {
-    let filtered = globalProducts;
-    if (currentCategory !== 'all') filtered = filtered.filter(p => p.category === currentCategory);
-    if (currentSearch.trim()) {
-        const searchLower = currentSearch.toLowerCase();
-        filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(searchLower));
-    }
-    displayProducts(filtered);
-}
-
-export function filterByCategory(cat, element) {
-    document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
-    if (element) element.classList.add('active');
-    currentCategory = cat;
-    applyFilters();
-}
-
-let searchTimeout;
-export function filterBySearch(queryStr) {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        currentSearch = queryStr;
-        applyFilters();
-    }, 250);
-}
-
-// ==================== المفضلة ====================
-function getFavorites() {
-    try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch { return []; }
-}
-
-export function toggleFavorite(productId, btnElement) {
-    const favs = getFavorites();
-    const isFav = favs.includes(productId);
-    const newFavs = isFav ? favs.filter(id => id !== productId) : [...favs, productId];
-    localStorage.setItem('favorites', JSON.stringify(newFavs));
-
-    if (btnElement) {
-        btnElement.classList.toggle('active', !isFav);
-    } else {
-        const card = document.getElementById(`product-card-${productId}`);
-        if (card) {
-            const favBtn = card.querySelector('.fav-btn');
-            if (favBtn) favBtn.classList.toggle('active', !isFav);
-        }
-    }
-}
-
-// ==================== تحميل المنتجات مع الدفعات ====================
+// ==================== تحميل المنتجات (تدريجي) ====================
 export async function initProductsListener() {
     const grid = document.getElementById('productsGrid');
     if (!grid) return;
 
+    // إلغاء أي اشتراك قديم (احتياطي)
+    if (unsubscribeProducts) {
+        unsubscribeProducts();
+        unsubscribeProducts = null;
+    }
+
     try {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
         const snapshot = await getDocs(q);
-        
         globalProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (snapshot.docs.length > 0) {
             lastVisibleProduct = snapshot.docs[snapshot.docs.length - 1];
@@ -539,7 +682,7 @@ export async function initProductsListener() {
         applyFilters();
     } catch (error) {
         console.error("خطأ تحميل المنتجات:", error);
-        grid.innerHTML = '<p style="color:red; text-align:center;">فشل تحميل المنتجات.</p>';
+        grid.innerHTML = '<p style="color:red; text-align:center;">تعذر تحميل المنتجات.</p>';
     }
 }
 
@@ -552,7 +695,6 @@ export async function loadMoreProducts() {
     try {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"), startAfter(lastVisibleProduct), limit(PAGE_SIZE));
         const snapshot = await getDocs(q);
-
         if (snapshot.empty) {
             hasMoreProducts = false;
         } else {
@@ -571,112 +713,70 @@ export async function loadMoreProducts() {
     }
 }
 
-// ==================== المظهر الداكن الإصلاح الشامل ====================
-export function toggleDarkMode() {
-    const isDark = document.body.classList.toggle('dark');
-    localStorage.setItem('darkMode', isDark ? 'true' : 'false');
-    updateDarkModeIcons(isDark);
-}
-
-function updateDarkModeIcons(isDark) {
-    const icons = document.querySelectorAll('.dark-toggle i, #adminDarkIcon, #darkModeIcon, .dark-mode-icon');
-    icons.forEach(icon => {
-        icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-    });
-}
-
-export function loadDarkModePreference() {
-    const isDark = localStorage.getItem('darkMode') === 'true';
-    if (isDark) {
-        document.body.classList.add('dark');
-    } else {
-        document.body.classList.remove('dark');
-    }
-    updateDarkModeIcons(isDark);
-}
-
 // ==================== تهيئة الصفحة الرئيسية ====================
 export function initMainPage() {
     loadDarkModePreference();
 
-    // تشغيل الموسيقى والترحيب
+    // شاشة الترحيب والموسيقى
     const enterBtn = document.getElementById('enterBtn');
-    const welcome = document.getElementById('welcomeOverlay');
+    const welcomeOverlay = document.getElementById('welcomeOverlay');
     const bgMusic = document.getElementById('bgMusic');
     const toggleMusicBtn = document.getElementById('toggleMusicBtn');
+    const musicIcon = document.getElementById('musicIcon');
 
-    if (enterBtn && welcome) {
+    if (enterBtn && welcomeOverlay) {
         enterBtn.addEventListener('click', () => {
             if (bgMusic) {
                 bgMusic.play().then(() => {
-                    updateMusicIcon(true);
-                }).catch(e => console.log("المتصفح منع التشغيل التلقائي:", e));
+                    if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
+                }).catch(err => console.log("تعذر تشغيل الصوت تلقائياً:", err));
             }
-            welcome.style.display = 'none';
+            welcomeOverlay.style.display = 'none';
         });
     }
 
-    if (toggleMusicBtn && bgMusic) {
+    if (toggleMusicBtn && bgMusic && musicIcon) {
         toggleMusicBtn.addEventListener('click', () => {
             if (bgMusic.paused) {
-                bgMusic.play().then(() => updateMusicIcon(true)).catch(() => {});
+                bgMusic.play();
+                musicIcon.className = 'fa-solid fa-volume-high';
             } else {
                 bgMusic.pause();
-                updateMusicIcon(false);
+                musicIcon.className = 'fa-solid fa-volume-xmark';
             }
         });
     }
 
-    function updateMusicIcon(isPlaying) {
-        const musicIcons = document.querySelectorAll('#musicIcon, .music-icon');
-        musicIcons.forEach(icon => {
-            icon.className = isPlaying ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
-        });
-    }
-
-    // ربط الوضع الداكن بجميع الأزرار المتاحة
-    document.addEventListener('click', (e) => {
-        if (e.target.closest('.dark-toggle') || e.target.closest('#darkModeIcon')) {
-            toggleDarkMode();
-        }
+    // أزرار الوضع المظلم
+    document.querySelectorAll('.dark-toggle').forEach(btn => {
+        btn.addEventListener('click', toggleDarkMode);
     });
 
+    // بدء تحميل المنتجات وباقي المكونات
     initProductsListener();
     initCheckoutForm();
-    handleReferral();
+    initReferralSystem();
     updateCartBadge();
 
-    // ربط الدوال عالمياً
+    // ربط الدوال العامة
+    window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.changeQty = changeQty;
     window.removeFromCart = removeFromCart;
-    window.toggleFavorite = toggleFavorite;
+    window.toggleCartModal = toggleCartModal;
     window.filterByCategory = filterByCategory;
     window.filterBySearch = filterBySearch;
     window.uploadImageToImgBB = uploadImageToImgBB;
     window.compressOldBase64Images = compressOldBase64Images;
     window.updateDelivery = updateDelivery;
-    window.toggleCartModal = toggleCartModal;
+    window.toggleInfoModal = toggleInfoModal;
+    window.shareProduct = shareProduct;
+    window.copyReferralCode = copyReferralCode;
+    window.shareReferral = shareReferral;
+    window.getMyReferralCode = getMyReferralCode;
     window.loadMoreProducts = loadMoreProducts;
     window.toggleDarkMode = toggleDarkMode;
 }
 
-export function toggleCartModal() {
-    const modal = document.getElementById('cartModal');
-    if (modal) {
-        modal.classList.toggle('open');
-        if (modal.classList.contains('open')) {
-            updateDelivery();
-            renderCartItems();
-        }
-    }
-}
-
-// تشغيل التهيئة عند اكتمال تحميل DOM
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMainPage);
-} else {
-    initMainPage();
-}
-
+// ==================== تصديرات Firestore ====================
 export { db, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy, serverTimestamp };

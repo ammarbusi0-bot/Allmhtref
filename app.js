@@ -1,5 +1,5 @@
 // ============================================================
-//  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
+//  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate - Fixed)
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -14,6 +14,7 @@ import {
     orderBy,
     serverTimestamp,
     getDocs,
+    setDoc,
     writeBatch,
     limit,
     startAfter,
@@ -65,7 +66,7 @@ let state = {
     referralCode: '',
     discountApplied: false,
     invitedBy: null,
-    referralPoints: {}
+    isAdminLoggedIn: false
 };
 
 // ============================================================
@@ -123,7 +124,7 @@ export function closeWelcomeOverlay() {
 }
 
 // ============================================================
-//  نظام المستخدمين
+//  نظام المستخدمين ومزامنة Firestore
 // ============================================================
 export function getUser() {
     try {
@@ -132,11 +133,24 @@ export function getUser() {
     } catch { return null; }
 }
 
-export function setUser(userData) {
+export async function setUser(userData) {
     localStorage.setItem('alukhowah_user', JSON.stringify(userData));
     state.user = userData;
     updateUserUI();
     showReferralCode();
+
+    // حفظ أو تحديث المستخدم في Firestore لكي يظهر للإدارة
+    try {
+        const userRef = doc(db, 'users', userData.phone);
+        await setDoc(userRef, {
+            name: userData.name,
+            phone: userData.phone,
+            address: userData.address,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error('Error saving user to Firestore:', e);
+    }
 }
 
 export function logoutUser() {
@@ -160,7 +174,7 @@ export function updateUserUI() {
     }
 }
 
-export function showLoginModal() {
+export async function showLoginModal() {
     const phone = prompt('أدخل رقم الهاتف:');
     if (!phone || !validatePhone(phone)) {
         showToast('رقم هاتف غير صحيح', 'error');
@@ -168,12 +182,20 @@ export function showLoginModal() {
     }
     const name = prompt('أدخل اسمك:') || 'مستخدم';
     const address = prompt('أدخل عنوانك:') || '';
-    setUser({ phone, name, address, orders: [] });
+    
+    await setUser({ phone, name, address, orders: [] });
+    
+    // فحص وتفعيل كود الدعوة إن وجد وإرساله للإدارة
+    const ref = localStorage.getItem('invitedBy');
+    if (ref) {
+        await submitReferralRequestToFirestore(phone, name, ref);
+    }
+
     showToast(`مرحباً ${name}`, 'success');
 }
 
 // ============================================================
-//  نظام الدعوة والخصم
+//  نظام الدعوة والخصم (مرتبط بـ Firestore للإدارة)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -189,16 +211,38 @@ export function getInviteLink() {
     return `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
 }
 
-export function handleReferral() {
+export async function handleReferral() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     const myCode = getMyReferralCode();
+    
     if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
         localStorage.setItem('invitedBy', ref);
         state.invitedBy = ref;
+        
+        const user = getUser();
+        if (user && user.phone) {
+            await submitReferralRequestToFirestore(user.phone, user.name, ref);
+        }
+
         setTimeout(() => {
-            showToast('🎉 تم تفعيل كود الدعوة في انتظار الموافقة والتحقق!', 'success', 5000);
+            showToast('🎉 تم تفعيل كود الدعوة وإرساله للإدارة للتحقق!', 'success', 5000);
         }, 500);
+    }
+}
+
+async function submitReferralRequestToFirestore(phone, name, refCode) {
+    try {
+        const reqRef = doc(db, 'referralRequests', phone);
+        await setDoc(reqRef, {
+            phone: phone,
+            name: name,
+            invitedBy: refCode,
+            status: 'قيد المعالجة',
+            createdAt: serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error('Error submitting referral request:', e);
     }
 }
 
@@ -207,24 +251,11 @@ export function getReferralDiscount(total) {
     const user = getUser();
     if (!user || !user.phone) return 0;
     
-    const phoneKey = `discountApplied_${user.phone}`;
-    if (localStorage.getItem(phoneKey) === 'true') return 0;
-    if (!localStorage.getItem('invitedBy')) return 0;
+    const phoneKey = `discountApproved_${user.phone}`;
+    // التحقق مما إذا وافقت الإدارة على الخصم
+    if (localStorage.getItem(phoneKey) !== 'true') return 0;
     
     return Math.round(total * 0.10);
-}
-
-export function applyReferralDiscount(total) {
-    const discount = getReferralDiscount(total);
-    if (discount > 0) {
-        const user = getUser();
-        if (user && user.phone) {
-            localStorage.setItem(`discountApplied_${user.phone}`, 'true');
-            localStorage.setItem('referralUsed', 'true');
-        }
-        state.discountApplied = true;
-    }
-    return discount;
 }
 
 export function showReferralCode() {
@@ -254,7 +285,7 @@ export function showReferralCode() {
                 <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
             </div>
         </div>
-        <p style="font-size:11px;color:#888;margin-top:4px;">شارك الكود واحصل على خصم 10% (يخضع للموافقة)</p>
+        <p style="font-size:11px;color:#888;margin-top:4px;">شارك الكود واحصل على خصم 10% (يخضع لموافقة الإدارة)</p>
     `;
 }
 
@@ -269,6 +300,117 @@ export function shareReferral() {
     const code = getMyReferralCode();
     const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على خصم 10%: ${code}\n📱 ${window.location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+}
+
+// ============================================================
+//  نظام لوحة الإدارة (Admin Dashboard)
+// ============================================================
+export function openAdminDashboard() {
+    const pin = prompt('أدخل رمز المرور الخاص بالإدارة:');
+    // رمز المرور الافتراضي للإدارة (يمكنك تغييره هنا)
+    if (pin !== '123456' && pin !== 'admin123') {
+        showToast('❌ رمز المرور غير صحيح', 'error');
+        return;
+    }
+    state.isAdminLoggedIn = true;
+    renderAdminModal();
+}
+
+function renderAdminModal() {
+    let adminModal = document.getElementById('adminModal');
+    if (!adminModal) {
+        adminModal = document.createElement('div');
+        adminModal.id = 'adminModal';
+        adminModal.className = 'modal';
+        adminModal.innerHTML = `
+            <div class="modal-content" style="max-width:800px; width:95%; max-height:90vh; overflow-y:auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:15px;">
+                    <h2>🛡️ لوحة التحكم الإدارية الشاملة</h2>
+                    <button onclick="document.getElementById('adminModal').classList.remove('open')" class="btn-secondary">إغلاق ✕</button>
+                </div>
+                <div id="adminContent">
+                    <p>جاري تحميل البيانات...</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(adminModal);
+    }
+    adminModal.classList.add('open');
+    loadAdminData();
+}
+
+async function loadAdminData() {
+    const content = document.getElementById('adminContent');
+    if (!content) return;
+
+    try {
+        // جلب طلبات الخصم المعلقة
+        const refSnapshot = await getDocs(collection(db, 'referralRequests'));
+        let referralHTML = '<h3>🎁 طلبات الخصم والدعوات</h3>';
+        if (refSnapshot.empty) {
+            referralHTML += '<p style="color:#777;">لا توجد طلبات خصم حالياً.</p>';
+        } else {
+            referralHTML += '<table style="width:100%; border-collapse:collapse; margin-bottom:20px;" border="1"><tr><th style="padding:8px;">الاسم</th><th style="padding:8px;">الهاتف</th><th style="padding:8px;">الكود المستخدم</th><th style="padding:8px;">الحالة</th><th style="padding:8px;">إجراء</th></tr>';
+            refSnapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                referralHTML += `
+                    <tr>
+                        <td style="padding:8px;">${escapeHTML(data.name)}</td>
+                        <td style="padding:8px;">${escapeHTML(data.phone)}</td>
+                        <td style="padding:8px;">${escapeHTML(data.invitedBy)}</td>
+                        <td style="padding:8px;">${escapeHTML(data.status)}</td>
+                        <td style="padding:8px; text-align:center;">
+                            <button onclick="window.approveDiscount('${escapeHTML(data.phone)}')" class="btn-primary" style="padding:4px 8px; font-size:12px;">موافقة على الخصم</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            referralHTML += '</table>';
+        }
+
+        // جلب الطلبات الأخيرة
+        const ordersSnapshot = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(20)));
+        let ordersHTML = '<h3>📦 أحدث الطلبات</h3>';
+        if (ordersSnapshot.empty) {
+            ordersHTML += '<p style="color:#777;">لا توجد طلبات مسجلة.</p>';
+        } else {
+            ordersHTML += '<table style="width:100%; border-collapse:collapse;" border="1"><tr><th style="padding:8px;">العميل</th><th style="padding:8px;">الهاتف</th><th style="padding:8px;">الإجمالي</th><th style="padding:8px;">العنوان</th><th style="padding:8px;">الحالة</th></tr>';
+            ordersSnapshot.forEach(docSnap => {
+                const order = docSnap.data();
+                ordersHTML += `
+                    <tr>
+                        <td style="padding:8px;">${escapeHTML(order.customerName)}</td>
+                        <td style="padding:8px;">${escapeHTML(order.customerPhone)}</td>
+                        <td style="padding:8px;">${order.finalTotal} Lt</td>
+                        <td style="padding:8px;">${escapeHTML(order.customerAddress)}</td>
+                        <td style="padding:8px;">${escapeHTML(order.status)}</td>
+                    </tr>
+                `;
+            });
+            ordersHTML += '</table>';
+        }
+
+        content.innerHTML = referralHTML + '<hr style="margin:20px 0;" />' + ordersHTML;
+
+    } catch (e) {
+        console.error('Error loading admin data:', e);
+        content.innerHTML = '<p style="color:red;">حدث خطأ أثناء تحميل بيانات الإدارة.</p>';
+    }
+}
+
+export async function approveDiscount(phone) {
+    try {
+        const reqRef = doc(db, 'referralRequests', phone);
+        await updateDoc(reqRef, { status: 'تمت الموافقة' });
+        
+        // حفظ موافقة الخصم محلياً للعميل أو إرسالها عبر Firestore
+        localStorage.setItem(`discountApproved_${phone}`, 'true');
+        showToast('✅ تمت الموافقة على الخصم بنجاح', 'success');
+        loadAdminData();
+    } catch (e) {
+        console.error('Error approving discount:', e);
+        showToast('❌ حدث خطأ أثناء الموافقة', 'error');
+    }
 }
 
 // ============================================================
@@ -601,7 +743,7 @@ export function initCheckoutForm() {
                 transaction.set(doc(orderRef), orderData);
             });
 
-            setUser({ phone, name, address, orders: [] });
+            await setUser({ phone, name, address, orders: [] });
 
             state.cart = [];
             saveCart();
@@ -626,7 +768,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  ربط الدوال بالنطاق العام (Window) لضمان عمل الأزرار وتجنب التعليق
+//  ربط الدوال بالنطاق العام (Window)
 // ============================================================
 window.escapeHTML = escapeHTML;
 window.validatePhone = validatePhone;
@@ -642,10 +784,11 @@ window.getMyReferralCode = getMyReferralCode;
 window.getInviteLink = getInviteLink;
 window.handleReferral = handleReferral;
 window.getReferralDiscount = getReferralDiscount;
-window.applyReferralDiscount = applyReferralDiscount;
 window.showReferralCode = showReferralCode;
 window.copyReferralCode = copyReferralCode;
 window.shareReferral = shareReferral;
+window.openAdminDashboard = openAdminDashboard;
+window.approveDiscount = approveDiscount;
 window.addToCart = addToCart;
 window.changeQty = changeQty;
 window.removeFromCart = removeFromCart;

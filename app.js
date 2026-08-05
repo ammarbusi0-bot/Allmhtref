@@ -324,7 +324,7 @@ export function updateCartBadge() {
 }
 
 // ============================================================
-//  حساب الإجمالي (مع خصومات متعددة وآمنة)
+//  حساب الإجمالي (مع خصومات متعددة وآمنة)  - تم إصلاح مشكلة خصم الدعوة
 // ============================================================
 function calculateFinalTotal() {
     const itemsTotal = state.cart.reduce((sum, item) => {
@@ -339,7 +339,17 @@ function calculateFinalTotal() {
     const smartDiscountAmount = itemsTotal * (smartDiscountPercent / 100);
     let discountedItemsTotal = Math.max(0, itemsTotal - smartDiscountAmount);
 
-    const referralDiscount = getReferralDiscount(discountedItemsTotal);
+    // ----- إصلاح خصم الدعوة (يُطبق مرة واحدة فقط) -----
+    let referralDiscount = 0;
+    if (discountedItemsTotal >= 100 && localStorage.getItem('invitedBy') && localStorage.getItem('discountApplied') !== 'true') {
+        referralDiscount = Math.min(discountedItemsTotal * 0.10, 50);
+        if (referralDiscount > 0) {
+            localStorage.setItem('discountApplied', 'true');
+            state.discountApplied = true;
+        }
+    }
+    // --------------------------------------------------
+
     discountedItemsTotal = Math.max(0, discountedItemsTotal - referralDiscount);
 
     let deliveryCost = 0;
@@ -563,7 +573,9 @@ export function displayProducts(items, append = false) {
             img.loading = 'lazy';
             img.onerror = () => {
                 img.style.display = 'none';
-                img.nextElementSibling.style.display = 'flex';
+                if (img.nextElementSibling) {
+                    img.nextElementSibling.style.display = 'flex';
+                }
             };
             imgContainer.appendChild(img);
 
@@ -673,7 +685,7 @@ export function applyFilters() {
 }
 
 function renderPage(append = false) {
-    const start = append ? window._displayedCount : 0;
+    const start = append ? (window._displayedCount || 0) : 0;
     const end = start + state.pageSize;
     const pageItems = state.filteredProducts.slice(start, end);
 
@@ -683,7 +695,7 @@ function renderPage(append = false) {
         window._displayedCount = pageItems.length;
     } else {
         displayProducts(pageItems, true);
-        window._displayedCount += pageItems.length;
+        window._displayedCount = (window._displayedCount || 0) + pageItems.length;
     }
 
     state.hasMore = window._displayedCount < state.filteredProducts.length;
@@ -707,7 +719,7 @@ export function loadMoreProducts() {
 function updateLoadMoreButton() {
     const btn = document.getElementById('loadMoreBtn');
     if (!btn) return;
-    if (state.hasMore && state.filteredProducts.length > window._displayedCount) {
+    if (state.hasMore && state.filteredProducts.length > (window._displayedCount || 0)) {
         btn.style.display = 'block';
         btn.disabled = false;
         btn.textContent = '📦 تحميل المزيد';
@@ -977,6 +989,15 @@ export function initMainPage() {
     }
 
     applyFilters();
+}
+
+// ============================================================
+//  التشغيل التلقائي الآمن للمتجر عند تحميل الصفحة
+// ============================================================
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMainPage);
+} else {
+    initMainPage();
 }
 
 // ============================================================

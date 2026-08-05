@@ -108,7 +108,7 @@ export function getStock(product) {
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
     if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
-    return 99; // قيمة افتراضية لضمان عدم ظهور المنتجات كغير متوفرة إن لم يُحدد المخزون
+    return 99;
 }
 
 export function closeWelcomeOverlay() {
@@ -123,7 +123,7 @@ export function closeWelcomeOverlay() {
 }
 
 // ============================================================
-//  نظام المستخدمين
+//  نظام المستخدمين (مع إرسال طلب التفعيل تلقائياً عند الإدخال)
 // ============================================================
 export function getUser() {
     try {
@@ -160,7 +160,7 @@ export function updateUserUI() {
     }
 }
 
-export function showLoginModal() {
+export async function showLoginModal() {
     const phone = prompt('أدخل رقم الهاتف:');
     if (!phone || !validatePhone(phone)) {
         showToast('رقم هاتف غير صحيح', 'error');
@@ -169,20 +169,38 @@ export function showLoginModal() {
     const name = prompt('أدخل اسمك:') || 'مستخدم';
     const address = prompt('أدخل عنوانك:') || '';
     
+    // مسح أي حالة خصم سابقة مرتبطة بالرقم لضمان البدء بنظافة
+    localStorage.removeItem(`discountApplied_${phone}`);
+
     const existingUser = getUser();
     const userData = { 
         phone, 
         name, 
         address, 
         orders: existingUser?.orders || [],
-        discountStatus: existingUser?.discountStatus || 'none' 
+        discountStatus: 'pending' // تعيين الحالة مباشرة قيد المراجعة
     };
     setUser(userData);
-    showToast(`مرحباً ${name}`, 'success');
+
+    try {
+        // إرسال طلب تفعيل الخصم للإدارة تلقائياً فور إدخال البيانات
+        await addDoc(collection(db, "discountRequests"), {
+            phone: phone,
+            name: name,
+            status: 'pending',
+            createdAt: serverTimestamp()
+        });
+        showToast('✅ تم إرسال طلب الخصم للإدارة تلقائياً، وهو قيد المراجعة', 'success', 4000);
+    } catch (e) {
+        console.error("خطأ في إرسال طلب الخصم:", e);
+        showToast('فشل إرسال طلب الخصم تلقائياً', 'error');
+    }
+
+    showReferralCode();
 }
 
 // ============================================================
-//  نظام الدعوة والخصم (يتطلب موافقة الإدارة الصريحة)
+//  نظام الدعوة والخصم (مشروط بموافقة الإدارة)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -194,36 +212,11 @@ export function getMyReferralCode() {
     return code;
 }
 
-export async function requestDiscountApproval() {
-    const user = getUser();
-    if (!user || !user.phone) {
-        showToast('الرجاء إدخال رقم الهاتف أولاً', 'error');
-        showLoginModal();
-        return;
-    }
-    try {
-        // إرسال طلب تفعيل الخصم إلى قاعدة البيانات ليقوم الأدمن بالموافقة عليه
-        await addDoc(collection(db, "discountRequests"), {
-            phone: user.phone,
-            name: user.name || 'مستخدم',
-            status: 'pending',
-            createdAt: serverTimestamp()
-        });
-        user.discountStatus = 'pending';
-        setUser(user);
-        showToast('✅ تم إرسال طلب تفعيل الخصم للإدارة', 'success', 4000);
-        showReferralCode();
-    } catch (e) {
-        showToast('فشل إرسال الطلب، حاول مرة أخرى', 'error');
-    }
-}
-
 export function getReferralDiscount(total) {
     if (total < 100) return 0;
     const user = getUser();
     if (!user || !user.phone) return 0;
     
-    // شرط أساسي: لا يطبق الخصم إلا إذا وافقت الإدارة وأصبح status معتمد ('approved')
     if (user.discountStatus !== 'approved') return 0;
     
     const phoneKey = `discountApplied_${user.phone}`;
@@ -259,16 +252,9 @@ export function showReferralCode() {
         return;
     }
 
-    const status = user.discountStatus || 'none';
+    const status = user.discountStatus || 'pending';
 
-    if (status === 'none') {
-        container.innerHTML = `
-            <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed var(--primary, #28a745);">
-                <p style="font-size:12px;color:#333;font-weight:bold;margin-bottom:6px;">🎁 خصم 10% على طلبك الأول</p>
-                <button onclick="window.requestDiscountApproval()" class="btn-primary" style="padding:5px 12px;font-size:12px;">📩 إرسال طلب موافقة للإدارة</button>
-            </div>
-        `;
-    } else if (status === 'pending') {
+    if (status === 'pending') {
         container.innerHTML = `
             <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed #f0ad4e;">
                 <p style="font-size:12px;color:#f0ad4e;font-weight:bold;margin:4px;">⏳ طلب الخصم قيد موافقة الإدارة</p>
@@ -345,7 +331,7 @@ function loadCart() {
 function saveCart() {
     try {
         localStorage.setItem('alukhowah_cart', JSON.stringify(state.cart));
-    } catch (e) { /* تجاهل */ }
+    } catch (e) {}
 }
 
 export function addToCart(id) {
@@ -1197,7 +1183,6 @@ export function initMainPage() {
         window.copyReferralCode = copyReferralCode;
         window.shareReferral = shareReferral;
         window.getMyReferralCode = getMyReferralCode;
-        window.requestDiscountApproval = requestDiscountApproval;
         window.loadMoreProducts = loadMoreProducts;
         window.logoutUser = logoutUser;
         window.showLoginModal = showLoginModal;

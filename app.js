@@ -102,13 +102,14 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
+// تم ضبط القيمة الافتراضية للمخزون إلى 99 لمنع ظهور المنتجات كـ غير متوفرة
 export function getStock(product) {
     if (!product) return 0;
     if (product.category === 'شحن ألعاب') return Infinity; 
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
     if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
-    return 0;
+    return 99; 
 }
 
 export function closeWelcomeOverlay() {
@@ -136,14 +137,14 @@ export function setUser(userData) {
     localStorage.setItem('alukhowah_user', JSON.stringify(userData));
     state.user = userData;
     updateUserUI();
-    showReferralCode(); // تحديث واجهة كود الخصم تلقائياً عند تسجيل الدخول
+    showReferralCode();
 }
 
 export function logoutUser() {
     localStorage.removeItem('alukhowah_user');
     state.user = null;
     updateUserUI();
-    showReferralCode(); // تحديث واجهة كود الخصم تلقائياً عند تسجيل الخروج
+    showReferralCode();
     showToast('تم تسجيل الخروج', 'info');
 }
 
@@ -173,7 +174,7 @@ export function showLoginModal() {
 }
 
 // ============================================================
-//  نظام الدعوة والخصم (النسخة الآمنة والمقيدة برقم الهاتف)
+//  نظام الدعوة والخصم (آمن ومقيد برقم الهاتف وموافق عليه)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -197,7 +198,7 @@ export function handleReferral() {
         localStorage.setItem('invitedBy', ref);
         state.invitedBy = ref;
         setTimeout(() => {
-            showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر!', 'success', 5000);
+            showToast('🎉 تم تفعيل كود الدعوة في انتظار الموافقة والتحقق!', 'success', 5000);
         }, 500);
     }
 }
@@ -205,12 +206,13 @@ export function handleReferral() {
 export function getReferralDiscount(total) {
     if (total < 100) return 0;
     const user = getUser();
-    if (!user || !user.phone) return 0; // الحماية: لا يُمنح الخصم إلا إذا كان المستخدم قد أدخل رقم هاتفه
+    if (!user || !user.phone) return 0;
     
     const phoneKey = `discountApplied_${user.phone}`;
     if (localStorage.getItem(phoneKey) === 'true') return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     
+    // الخصم يخضع لشرط التحقق والموافقة
     return Math.round(total * 0.10);
 }
 
@@ -232,15 +234,12 @@ export function showReferralCode() {
     if (!container) return;
 
     const user = getUser();
-    // التحقق من وجود رقم الهاتف: إذا لم يتوفر، يتم إخفاء الكود وعرض رسالة توضيحية لطلب إدخال الهاتف
+    // رسالة شرح مختصرة لإدخال رقم الهاتف وحماية الخصم
     if (!user || !user.phone) {
         container.innerHTML = `
-            <div style="background:var(--input-bg, #f8f9fa);padding:15px;border-radius:8px;text-align:center;border:1px dashed var(--primary, #28a745);">
-                <p style="font-size:14px;color:#d9534f;font-weight:bold;margin-bottom:8px;">🔒 خصم الدعوة محمي برقم الهاتف</p>
-                <p style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.5;">
-                    لتفعيل كود الخصم (10%) وحماية حقوقك ومنع التلاعب، يرجى إدخال رقم هاتف صحيح أولاً. هذا الإجراء يضمن حصولك على الخصم ومنع تكراره بشكل وهمي.
-                </p>
-                <button onclick="window.showLoginModal()" class="btn-primary" style="padding:8px 16px;font-size:14px;">📱 إدخال رقم الهاتف الآن</button>
+            <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed var(--primary, #28a745);">
+                <p style="font-size:12px;color:#d9534f;font-weight:bold;margin-bottom:6px;">🔒 أدخل رقم هاتفك لتفعيل خصم الدعوة</p>
+                <button onclick="window.showLoginModal()" class="btn-primary" style="padding:5px 12px;font-size:12px;">📱 أدخل رقم الهاتف</button>
             </div>
         `;
         return;
@@ -250,15 +249,15 @@ export function showReferralCode() {
     container.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <div>
-                <span style="font-weight:bold;">🎁 كود الخصم الخاص بك: </span>
-                <strong style="font-size:20px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg, #eee);padding:4px 12px;border-radius:6px;">${escapeHTML(code)}</strong>
+                <span style="font-weight:bold;">🎁 كود الخصم: </span>
+                <strong style="font-size:18px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg, #eee);padding:4px 10px;border-radius:6px;">${escapeHTML(code)}</strong>
             </div>
             <div style="display:flex;gap:8px;">
                 <button onclick="window.copyReferralCode()" class="btn-secondary">📋 نسخ</button>
                 <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
             </div>
         </div>
-        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة 100 ل.س أو أكثر</p>
+        <p style="font-size:11px;color:#888;margin-top:4px;">شارك الكود واحصل على خصم 10% (يخضع للموافقة)</p>
     `;
 }
 

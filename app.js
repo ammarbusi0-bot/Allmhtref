@@ -25,7 +25,7 @@ import {
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase ----------
+// ---------- إعدادات Firebase (بدون تغييرات أمنية كما طلبت) ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -79,11 +79,13 @@ export function escapeHTML(str) {
 }
 
 export function validatePhone(phone) {
-    return /^[0-9]{7,15}$/.test(phone.trim());
+    if (!phone) return false;
+    const cleaned = phone.replace(/[^0-9+]/g, '');
+    return /^[0-9+]{7,15}$/.test(cleaned);
 }
 
 export function validateAddress(address) {
-    return address.trim().length >= 5;
+    return address && address.trim().length >= 5;
 }
 
 export function showToast(message, type = 'info', duration = 3500) {
@@ -100,9 +102,16 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// ============================================================
-//  إغلاق شاشة الترحيب بأمان
-// ============================================================
+// دالة مركزية لحساب المخزون الفعلي (لحل مشاكل لوحة التحكم)
+export function getStock(product) {
+    if (!product) return 0;
+    if (product.category === 'شحن ألعاب') return Infinity; 
+    const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
+    if (explicitUnavailability) return 0;
+    if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
+    return 99; // المخزون الافتراضي
+}
+
 export function closeWelcomeOverlay() {
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     if (welcomeOverlay) {
@@ -185,12 +194,7 @@ export function handleReferral() {
     const myCode = getMyReferralCode();
     if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
         localStorage.setItem('invitedBy', ref);
-        localStorage.setItem('referralUsed', 'true');
         state.invitedBy = ref;
-        let points = JSON.parse(localStorage.getItem('referralPoints') || '{}');
-        points[ref] = (points[ref] || 0) + 1;
-        localStorage.setItem('referralPoints', JSON.stringify(points));
-        state.referralPoints = points;
         setTimeout(() => {
             showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر!', 'success', 5000);
         }, 500);
@@ -256,20 +260,22 @@ function loadCart() {
             const rawCart = JSON.parse(saved);
             state.cart = rawCart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
-                if (product) {
-                    const discount = product.discount ? Number(product.discount) : 0;
-                    const basePrice = Number(product.price) || 0;
-                    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
-                    const stock = product.stock !== undefined && product.stock !== null ? Number(product.stock) : 99;
-                    let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
-                    
-                    if (product.category !== 'شحن ألعاب' && stock > 0 && safeQty > stock) {
-                        safeQty = stock;
-                    }
-                    return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
+                if (!product) return null; // إزالة المنتج إذا تم حذفه من قاعدة البيانات
+
+                const stock = getStock(product);
+                if (stock <= 0) return null; // إزالة المنتج إذا نفذ من المخزون تماماً
+
+                const discount = product.discount ? Number(product.discount) : 0;
+                const basePrice = Number(product.price) || 0;
+                const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+                
+                let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
+                if (safeQty > stock) {
+                    safeQty = stock; // تقييد الكمية لتناسب المخزون الحالي
                 }
-                return item;
-            }).filter(item => item && item.name);
+                
+                return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
+            }).filter(Boolean); // فلترة وإزالة المنتجات الفارغة
             saveCart();
         }
     } catch (e) { state.cart = []; }
@@ -293,8 +299,7 @@ export function addToCart(id) {
         return;
     }
 
-    // إذا لم تكن خاصية stock محددة، يفترض المفهوم وجود 99 قطعة افتراضياً
-    const stock = (product.stock !== undefined && product.stock !== null) ? Number(product.stock) : 99;
+    const stock = getStock(product);
     if (stock <= 0) {
         showToast('❌ هذا المنتج غير متوفر حالياً', 'error');
         return;
@@ -302,6 +307,7 @@ export function addToCart(id) {
 
     const idx = state.cart.findIndex(item => String(item.id) === String(id));
     const currentQty = idx > -1 ? state.cart[idx].qty : 0;
+    
     if (currentQty >= stock) {
         showToast(`⚠️ الكمية المتوفرة محدودة (${stock} قطعة فقط)`, 'error');
         return;
@@ -315,6 +321,7 @@ export function addToCart(id) {
         const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
         state.cart.push({ id: product.id, name: product.name, basePrice, price: finalPrice, discount, qty: 1 });
     }
+    
     saveCart();
     updateCartBadge();
     showToast('✅ تم إضافة المنتج للسلة', 'success');
@@ -334,20 +341,29 @@ function redirectToWhatsApp(product) {
 export function changeQty(id, delta) {
     const idx = state.cart.findIndex(item => String(item.id) === String(id));
     if (idx === -1) return;
-    const product = state.products.find(p => String(p.id) === String(id));
-    const stock = (product && product.stock !== undefined && product.stock !== null) ? Number(product.stock) : 99;
     
+    const product = state.products.find(p => String(p.id) === String(id));
+    if (!product) {
+        state.cart.splice(idx, 1);
+        saveCart();
+        updateCartBadge();
+        renderCartItems();
+        return;
+    }
+
+    const stock = getStock(product);
     let safeDelta = Math.floor(delta);
     const newQty = state.cart[idx].qty + safeDelta;
     
     if (newQty < 1) {
         state.cart.splice(idx, 1);
-    } else if (safeDelta > 0 && product && product.category !== 'شحن ألعاب' && newQty > stock) {
+    } else if (safeDelta > 0 && newQty > stock) {
         showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
         return;
     } else {
         state.cart[idx].qty = newQty;
     }
+    
     saveCart();
     updateCartBadge();
     renderCartItems();
@@ -384,7 +400,6 @@ function calculateFinalTotal() {
     else if (itemsTotal >= 500) smartDiscountPercent = 5;
 
     const smartDiscountAmount = Math.round(itemsTotal * (smartDiscountPercent / 100));
-
     const totalDiscounts = smartDiscountAmount + referralDiscount;
     const discountedItemsTotal = Math.max(0, itemsTotal - totalDiscounts);
 
@@ -513,7 +528,7 @@ export function initCheckoutForm() {
         const address = document.getElementById('userAddress')?.value.trim() || '';
 
         if (!validatePhone(phone)) {
-            showToast('رقم الهاتف غير صحيح (7-15 رقم)', 'error');
+            showToast('رقم الهاتف غير صحيح', 'error');
             return;
         }
         if (!validateAddress(address)) {
@@ -526,14 +541,11 @@ export function initCheckoutForm() {
         submitBtn.disabled = true;
 
         try {
-            let verifiedItems = [];
-            let verifiedItemsTotal = 0;
-            let updates = [];
-
-            await runTransaction(db, async (transaction) => {
-                verifiedItems = [];
-                verifiedItemsTotal = 0;
-                updates = [];
+            // المعاملة محصنة من الإعادة العشوائية (Retries)
+            const { verifiedItems, verifiedItemsTotal } = await runTransaction(db, async (transaction) => {
+                let tVerifiedItems = [];
+                let tVerifiedItemsTotal = 0;
+                let tUpdates = [];
 
                 for (const item of state.cart) {
                     const productRef = doc(db, "products", String(item.id));
@@ -544,33 +556,37 @@ export function initCheckoutForm() {
                     }
 
                     const data = productDoc.data();
-                    const currentStock = (data.stock !== undefined && data.stock !== null) ? Number(data.stock) : 99;
-                    const basePrice = Number(data.price) || 0;
-                    const discount = data.discount ? Number(data.discount) : 0;
-                    const realPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+                    const currentStock = getStock(data);
 
                     if (data.category !== 'شحن ألعاب' && currentStock < item.qty) {
                         throw new Error(`عذراً، الكمية المتوفرة من "${data.name}" هي ${currentStock} فقط.`);
                     }
 
-                    const itemTotal = realPrice * item.qty;
-                    verifiedItemsTotal += itemTotal;
+                    const basePrice = Number(data.price) || 0;
+                    const discount = data.discount ? Number(data.discount) : 0;
+                    const realPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
 
-                    verifiedItems.push({
+                    const itemTotal = realPrice * item.qty;
+                    tVerifiedItemsTotal += itemTotal;
+
+                    tVerifiedItems.push({
                         id: item.id,
                         name: data.name,
                         qty: item.qty,
                         price: realPrice
                     });
 
-                    if (data.category !== 'شحن ألعاب' && data.stock !== undefined && data.stock !== null) {
-                        updates.push({ ref: productRef, newStock: Math.max(0, currentStock - item.qty) });
+                    if (data.category !== 'شحن ألعاب') {
+                        tUpdates.push({ ref: productRef, newStock: Math.max(0, currentStock - item.qty) });
                     }
                 }
 
-                for (const u of updates) {
+                // تنفيذ تحديث المخزون
+                for (const u of tUpdates) {
                     transaction.update(u.ref, { stock: u.newStock });
                 }
+                
+                return { verifiedItems: tVerifiedItems, verifiedItemsTotal: tVerifiedItemsTotal };
             });
 
             const referralDiscount = getReferralDiscount(verifiedItemsTotal);
@@ -611,8 +627,10 @@ export function initCheckoutForm() {
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
             if (state.user) {
+                // إصلاح مشكلة Timestamp في LocalStorage
+                const localOrderData = { ...orderData, createdAt: new Date().toISOString() };
                 state.user.orders = state.user.orders || [];
-                state.user.orders.push({ id: docRef.id, ...orderData });
+                state.user.orders.push({ id: docRef.id, ...localOrderData });
                 setUser(state.user);
             }
 
@@ -660,8 +678,7 @@ export function displayProducts(items, append = false) {
         const imgUrl = String(p.imageUrl || '').trim();
         const isValid = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
         
-        // إذا كان حقل المخزون غير محدد، يتم اعتباره متوفراً بحجم 99
-        const stock = (p.stock !== undefined && p.stock !== null) ? Number(p.stock) : 99;
+        const stock = getStock(p);
         const isGameCharge = p.category === 'شحن ألعاب';
         const isAvailable = isGameCharge || stock > 0;
 
@@ -786,7 +803,7 @@ let searchTimeout = null;
 export function filterBySearch(queryStr) {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
-        state.searchQuery = queryStr.trim();
+        state.searchQuery = (queryStr || '').trim();
         resetPagination();
         applyFilters();
     }, 250);
@@ -1029,7 +1046,7 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart();
+        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
         
         resetPagination();
         applyFilters();
@@ -1061,7 +1078,6 @@ export function initMainPage() {
         loadDarkModePreference();
 
         const enterBtn = document.getElementById('enterBtn');
-        const welcomeOverlay = document.getElementById('welcomeOverlay');
         const bgMusic = document.getElementById('bgMusic');
         const toggleMusicBtn = document.getElementById('toggleMusicBtn');
         const musicIcon = document.getElementById('musicIcon');
@@ -1100,14 +1116,12 @@ export function initMainPage() {
 
         state.user = getUser();
         state.favorites = getFavorites();
-        loadCart();
-
+        
         initProductsListener();
         initCheckoutForm();
         handleReferral();
         showReferralCode();
         updateUserUI();
-        updateCartBadge();
 
         window.toggleFavorite = toggleFavorite;
         window.addToCart = addToCart;
@@ -1134,7 +1148,6 @@ export function initMainPage() {
             loadMoreBtn.addEventListener('click', loadMoreProducts);
         }
 
-        applyFilters();
     } catch (e) {
         console.error("خطأ أثناء التهيئة الرئيسية:", e);
         closeWelcomeOverlay();

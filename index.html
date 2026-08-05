@@ -475,7 +475,7 @@
 
     <!-- البحث -->
     <div class="search-section">
-        <input type="text" id="searchInput" placeholder="🔍 ابحث عن منتج...">
+        <input type="text" id="searchInput" placeholder="🔍 ابحث عن منتج..." oninput="window.filterBySearch(this.value)">
     </div>
 
     <!-- كود الدعوة -->
@@ -483,16 +483,16 @@
 
     <!-- الأقسام -->
     <div class="categories" id="categoriesContainer">
-        <span class="cat-chip active" data-category="all">الكل</span>
-        <span class="cat-chip" data-category="مؤن">مؤن أساسية</span>
-        <span class="cat-chip" data-category="ألبان">ألبان وأجبان</span>
-        <span class="cat-chip" data-category="زيوت">زيوت وسمن</span>
-        <span class="cat-chip" data-category="مشروبات">مشروبات</span>
-        <span class="cat-chip" data-category="بهارات">بهارات</span>
-        <span class="cat-chip" data-category="شبسات">شبسات</span>
-        <span class="cat-chip" data-category="حلويات">حلويات</span>
-        <span class="cat-chip" data-category="منظفات">منظفات</span>
-        <span class="cat-chip" data-category="شحن ألعاب">شحن ألعاب</span>
+        <span class="cat-chip active" data-category="all" onclick="window.filterByCategory('all', this)">الكل</span>
+        <span class="cat-chip" data-category="مؤن" onclick="window.filterByCategory('مؤن', this)">مؤن أساسية</span>
+        <span class="cat-chip" data-category="ألبان" onclick="window.filterByCategory('ألبان', this)">ألبان وأجبان</span>
+        <span class="cat-chip" data-category="زيوت" onclick="window.filterByCategory('زيوت', this)">زيوت وسمن</span>
+        <span class="cat-chip" data-category="مشروبات" onclick="window.filterByCategory('مشروبات', this)">مشروبات</span>
+        <span class="cat-chip" data-category="بهارات" onclick="window.filterByCategory('بهارات', this)">بهارات</span>
+        <span class="cat-chip" data-category="شبسات" onclick="window.filterByCategory('شبسات', this)">شبسات</span>
+        <span class="cat-chip" data-category="حلويات" onclick="window.filterByCategory('حلويات', this)">حلويات</span>
+        <span class="cat-chip" data-category="منظفات" onclick="window.filterByCategory('منظفات', this)">منظفات</span>
+        <span class="cat-chip" data-category="شحن ألعاب" onclick="window.filterByCategory('شحن ألعاب', this)">شحن ألعاب</span>
     </div>
 
     <!-- شبكة المنتجات -->
@@ -517,12 +517,12 @@
 
             <div class="delivery-box">
                 <h4>🚚 التوصيل</h4>
-                <select id="deliveryType">
+                <select id="deliveryType" onchange="window.updateDelivery()">
                     <option value="inside">داخل عمرانيا - 100 ل.س</option>
                     <option value="outside">خارج عمرانيا</option>
                 </select>
                 <div id="kmInputContainer" style="display:none;">
-                    <input type="number" id="deliveryKm" placeholder="عدد الكيلومترات" min="1" value="1">
+                    <input type="number" id="deliveryKm" placeholder="عدد الكيلومترات" min="1" value="1" oninput="window.updateDelivery()">
                     <span style="font-size:12px; color:#888;">35 ل.س لكل كيلومتر</span>
                 </div>
                 <div class="delivery-info">
@@ -617,7 +617,7 @@
             escapeHTML
         } from './app.js';
 
-        // ربط الدوال بالنافذة لاستخدامها في الأحداث المضمنة (onclick)
+        // ربط الدوال بالنافذة لاستخدامها في الأحداث المضمنة (onclick, oninput, onchange)
         window.toggleCartModal = toggleCartModal;
         window.toggleInfoModal = toggleInfoModal;
         window.filterBySearch = filterBySearch;
@@ -638,8 +638,17 @@
         window.showToast = showToast;
         window.escapeHTML = escapeHTML;
 
-        // تهيئة التطبيق بالكامل (جميع الأحداث تُربط هنا)
+        // تهيئة التطبيق بالكامل
         initMainPage();
+
+        // ----- ربط الأحداث الإضافية التي لا يمكن وضعها في onclick مباشرة -----
+        document.getElementById('cartToggleBtn').addEventListener('click', toggleCartModal);
+        document.getElementById('infoToggleBtn').addEventListener('click', toggleInfoModal);
+
+        // زر إغلاق السلة
+        document.getElementById('closeCartBtn').addEventListener('click', toggleCartModal);
+        // زر إغلاق المعلومات
+        document.getElementById('closeInfoBtn').addEventListener('click', toggleInfoModal);
     </script>
 </body>
 </html>

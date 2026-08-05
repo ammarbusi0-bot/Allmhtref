@@ -25,7 +25,8 @@ import {
     arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase (مخفية باستخدام متغيرات البيئة في الإنتاج) ----------
+// ---------- إعدادات Firebase (استخدم متغيرات بيئة في الإنتاج) ----------
+// 🔒 يُنصح بشدة بإخفاء هذه المفاتيح باستخدام Variables Environment أو خدمة وسيطة.
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -53,7 +54,7 @@ let state = {
     deliveryKm: 1,
     isSubmitting: false,
     isDarkMode: false,
-    user: null, // { phone, name, address, orders: [] }
+    user: null,
     lastDoc: null,
     hasMore: true,
     isLoading: false,
@@ -86,7 +87,6 @@ export function showToast(message, type = 'info', duration = 3500) {
     const toast = document.getElementById('customToast');
     const toastMsg = document.getElementById('toastMessage');
     if (!toast || !toastMsg) {
-        // fallback باستخدام alert مؤقت
         alert(message);
         return;
     }
@@ -134,7 +134,6 @@ export function updateUserUI() {
 }
 
 export function showLoginModal() {
-    // نافذة تسجيل دخول بسيطة (يمكن تطويرها)
     const phone = prompt('أدخل رقم الهاتف:');
     if (!phone || !validatePhone(phone)) {
         showToast('رقم هاتف غير صحيح', 'error');
@@ -185,7 +184,7 @@ export function getReferralDiscount(total) {
     if (total < 100) return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     if (localStorage.getItem('discountApplied') === 'true') return 0;
-    return Math.min(total * 0.10, 50); // حد أقصى 50 ليرة
+    return Math.min(total * 0.10, 50);
 }
 
 export function applyReferralDiscount(total) {
@@ -489,7 +488,6 @@ export function initCheckoutForm() {
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
-            // حفظ الطلب محلياً للمستخدم
             if (state.user) {
                 state.user.orders = state.user.orders || [];
                 state.user.orders.push({ id: docRef.id, ...orderData });
@@ -539,7 +537,6 @@ export function displayProducts(items, append = false) {
         card.className = 'product-card';
         card.dataset.id = p.id;
 
-        // خصم
         const discount = p.discount ? Number(p.discount) : 0;
         if (discount > 0) {
             const badge = document.createElement('span');
@@ -548,7 +545,6 @@ export function displayProducts(items, append = false) {
             card.appendChild(badge);
         }
 
-        // زر المفضلة
         const favBtn = document.createElement('div');
         favBtn.className = `fav-btn ${isFav ? 'active' : ''}`;
         favBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
@@ -558,7 +554,6 @@ export function displayProducts(items, append = false) {
         };
         card.appendChild(favBtn);
 
-        // الصورة
         const imgContainer = document.createElement('div');
         imgContainer.className = 'product-img';
         if (isValid) {
@@ -585,7 +580,6 @@ export function displayProducts(items, append = false) {
         }
         card.appendChild(imgContainer);
 
-        // المعلومات
         const info = document.createElement('div');
         info.className = 'product-info';
         const title = document.createElement('div');
@@ -607,7 +601,6 @@ export function displayProducts(items, append = false) {
         info.appendChild(priceDiv);
         card.appendChild(info);
 
-        // أزرار المشاركة
         const shareBtns = document.createElement('div');
         shareBtns.className = 'share-buttons';
         shareBtns.style.cssText = 'display:flex;gap:8px;margin:5px 0;justify-content:center;';
@@ -625,7 +618,6 @@ export function displayProducts(items, append = false) {
         });
         card.appendChild(shareBtns);
 
-        // زر الإضافة للسلة
         const addBtn = document.createElement('button');
         addBtn.className = 'btn-add-cart';
         addBtn.textContent = '+ أضف للسلة';
@@ -677,7 +669,6 @@ export function applyFilters() {
         filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(q));
     }
     state.filteredProducts = filtered;
-    // عرض الصفحة الأولى
     renderPage(false);
 }
 
@@ -748,7 +739,6 @@ export function toggleFavorite(id) {
     }
     localStorage.setItem('alukhowah_favs', JSON.stringify(favs));
     state.favorites = favs;
-    // تحديث واجهة المستخدم مباشرة (بدون إعادة تحميل كل المنتجات)
     updateFavButtons();
 }
 
@@ -858,7 +848,7 @@ export async function uploadImageToImgBB(fileOrInput) {
         const formData = new FormData();
         formData.append('image', blob, 'product.jpg');
 
-        // استخدام مفتاح مخفي (يفضل وضعه في متغير بيئي)
+        // 🔒 استخدم مفتاح ImgBB مخفي في متغير بيئي، هذا المفتاح للعرض فقط
         const myKey = "42b6820dc31a25d977adefc41f83aa70";
         const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
             method: 'POST',
@@ -871,7 +861,6 @@ export async function uploadImageToImgBB(fileOrInput) {
     } catch (e) {
         console.warn("ImgBB فشل، نستخدم Base64", e);
     }
-    // في حال الفشل نعيد الصورة المضغوطة
     return await compressImage(file, 300, 0.7);
 }
 
@@ -886,11 +875,8 @@ export function initProductsListener() {
 
     onSnapshot(q, (snapshot) => {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // تحديث المنتجات في الحالة
         state.products = newProducts;
-        // تحديث السلة إذا تغيرت الأسعار
         loadCart(); // يعيد حساب الأسعار
-        // إعادة تطبيق الفلاتر والترحيل
         resetPagination();
         applyFilters();
         updateCartBadge();
@@ -950,17 +936,14 @@ export function initMainPage() {
         });
     }
 
-    // المظهر الداكن
     document.querySelectorAll('.dark-toggle').forEach(btn => {
         btn.addEventListener('click', toggleDarkMode);
     });
 
-    // تحميل حالة المستخدم والمفضلة والسلة
     state.user = getUser();
     state.favorites = getFavorites();
     loadCart();
 
-    // تهيئة الأنظمة
     initProductsListener();
     initCheckoutForm();
     handleReferral();
@@ -988,13 +971,11 @@ export function initMainPage() {
     window.showLoginModal = showLoginModal;
     window.initProductsListener = initProductsListener;
 
-    // زر تحميل المزيد
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     if (loadMoreBtn) {
         loadMoreBtn.addEventListener('click', loadMoreProducts);
     }
 
-    // تحميل أولي
     applyFilters();
 }
 

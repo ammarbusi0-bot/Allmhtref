@@ -127,8 +127,6 @@
         .badge-status-processing { background: var(--info); }
         .badge-status-delivered { background: var(--success); }
         .badge-status-canceled { background: var(--danger); }
-        .badge-available { background: var(--success); }
-        .badge-unavailable { background: var(--danger); }
 
         .stats-grid {
             display: grid;
@@ -232,15 +230,6 @@
         .toast.info { border-right: 4px solid var(--info); }
 
         .status-select { padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); }
-        .toggle-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 18px;
-            padding: 0 4px;
-            color: var(--text);
-        }
-        .toggle-btn:hover { opacity: 0.7; }
 
         @media (max-width: 600px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -313,14 +302,6 @@
                     <label>صورة المنتج:</label>
                     <input type="file" id="pImgFile" accept="image/*">
                 </div>
-                <!-- إضافة حقل الحالة -->
-                <div class="form-group">
-                    <label>الحالة:</label>
-                    <select id="pAvailability">
-                        <option value="true">متوفر</option>
-                        <option value="false">غير متوفر</option>
-                    </select>
-                </div>
                 <button type="submit" class="btn btn-block" id="saveProductBtn">💾 حفظ المنتج</button>
             </form>
         </div>
@@ -360,12 +341,11 @@
                             <th>السعر</th>
                             <th>الخصم</th>
                             <th>القسم</th>
-                            <th>الحالة</th> <!-- عمود جديد -->
                             <th>إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="adminProductsTable">
-                        <tr><td colspan="9" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
+                        <tr><td colspan="8" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -429,14 +409,6 @@
             <div class="form-group">
                 <label>الخصم %:</label>
                 <input type="number" id="editDiscount" min="0" max="99">
-            </div>
-            <!-- إضافة حقل الحالة في التعديل -->
-            <div class="form-group">
-                <label>الحالة:</label>
-                <select id="editAvailability">
-                    <option value="true">متوفر</option>
-                    <option value="false">غير متوفر</option>
-                </select>
             </div>
             <button class="btn btn-block" onclick="window.saveEdit()">💾 حفظ التعديلات</button>
         </div>
@@ -509,21 +481,6 @@
         });
 
         // ====================================================
-        //  دالة تبديل حالة التوفر
-        // ====================================================
-        window.toggleAvailability = async function(id) {
-            const product = adminState.products.find(p => p.id === id);
-            if (!product) { showToast('المنتج غير موجود', 'error'); return; }
-            const newStatus = !product.available;
-            try {
-                await updateDoc(doc(db, "products", id), { available: newStatus });
-                showToast(`✅ تم تغيير الحالة إلى ${newStatus ? 'متوفر' : 'غير متوفر'}`, 'success');
-            } catch (e) {
-                showToast('❌ خطأ: ' + e.message, 'error');
-            }
-        };
-
-        // ====================================================
         //  دالة حذف المنتج
         // ====================================================
         window.deleteProduct = async function(id) {
@@ -572,9 +529,6 @@
             document.getElementById('editPrice').value = product.price || 0;
             document.getElementById('editCategory').value = product.category || 'مؤن';
             document.getElementById('editDiscount').value = product.discount || 0;
-            // تعيين الحالة في المودال
-            const avail = product.available !== undefined ? product.available : true;
-            document.getElementById('editAvailability').value = avail ? 'true' : 'false';
             document.getElementById('editModal').style.display = 'flex';
         };
 
@@ -591,14 +545,13 @@
             const price = Number(document.getElementById('editPrice').value);
             const category = document.getElementById('editCategory').value;
             const discount = Number(document.getElementById('editDiscount').value) || 0;
-            const available = document.getElementById('editAvailability').value === 'true';
 
             if (!name) { showToast('الاسم مطلوب', 'error'); return; }
             if (price <= 0) { showToast('السعر غير صحيح', 'error'); return; }
             if (discount < 0 || discount > 99) { showToast('الخصم بين 0 و 99', 'error'); return; }
 
             try {
-                await updateDoc(doc(db, "products", id), { name, price, category, discount, available });
+                await updateDoc(doc(db, "products", id), { name, price, category, discount });
                 showToast('✅ تم التعديل', 'success');
                 document.getElementById('editModal').style.display = 'none';
             } catch (e) {
@@ -612,8 +565,8 @@
         window.exportProductsCSV = function() {
             const products = adminState.filteredProducts.length ? adminState.filteredProducts : adminState.products;
             if (!products.length) { showToast('لا توجد منتجات', 'error'); return; }
-            const headers = ['#', 'الاسم', 'السعر', 'الخصم', 'القسم', 'متوفر'];
-            const rows = products.map((p, i) => [i+1, p.name, p.price, p.discount||0, p.category, p.available !== false ? 'نعم' : 'لا']);
+            const headers = ['#', 'الاسم', 'السعر', 'الخصم', 'القسم'];
+            const rows = products.map((p, i) => [i+1, p.name, p.price, p.discount||0, p.category]);
             const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
@@ -687,7 +640,7 @@
             document.getElementById('adminProductsNext').disabled = adminState.productsPage >= totalPages;
 
             if (!pageItems.length) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">لا توجد منتجات</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">لا توجد منتجات</td></tr>';
                 return;
             }
 
@@ -700,14 +653,6 @@
                     '<i class="fa-solid fa-basket-shopping" style="font-size:20px;color:#aaa;"></i>';
                 const discountBadge = p.discount && p.discount > 0 ?
                     `<span class="badge badge-discount">-${p.discount}%</span>` : '—';
-                // حالة التوفر
-                const isAvailable = p.available !== false; // true افتراضيًا
-                const availIcon = isAvailable ?
-                    `<i class="fa-solid fa-check-circle" style="color:var(--success);"></i>` :
-                    `<i class="fa-solid fa-times-circle" style="color:var(--danger);"></i>`;
-                const availText = isAvailable ? 'متوفر' : 'غير متوفر';
-                const availBadge = `<span class="badge ${isAvailable ? 'badge-available' : 'badge-unavailable'}">${availText}</span>`;
-
                 return `
                     <tr>
                         <td><input type="checkbox" class="product-checkbox" value="${p.id}"></td>
@@ -717,12 +662,6 @@
                         <td>${escapeHTML(p.price)} ل.س</td>
                         <td>${discountBadge}</td>
                         <td>${escapeHTML(p.category)}</td>
-                        <td>
-                            <button class="toggle-btn" onclick="window.toggleAvailability('${p.id}')" title="تبديل الحالة">
-                                ${availIcon}
-                            </button>
-                            ${availBadge}
-                        </td>
                         <td style="display:flex;gap:4px;flex-wrap:wrap;">
                             <button class="btn btn-info btn-small" onclick="window.editProduct('${p.id}')">✏️</button>
                             <button class="btn btn-danger btn-small" onclick="window.deleteProduct('${p.id}')">🗑️</button>
@@ -869,7 +808,7 @@
                 updateStats();
             }, (error) => {
                 document.getElementById('adminProductsTable').innerHTML =
-                    `<tr><td colspan="9" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
+                    `<tr><td colspan="8" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
             });
 
             // استماع الطلبات
@@ -953,7 +892,6 @@
             const category = document.getElementById('pCategory').value;
             const discount = Number(document.getElementById('pDiscount').value) || 0;
             const fileInput = document.getElementById('pImgFile');
-            const available = document.getElementById('pAvailability').value === 'true';
 
             if (!name) { showToast('اسم المنتج مطلوب', 'error'); return; }
             if (price <= 0) { showToast('السعر غير صحيح', 'error'); return; }
@@ -970,7 +908,6 @@
                 }
                 await addDoc(collection(db, "products"), {
                     name, price, category, discount,
-                    available, // إضافة الحالة
                     imageUrl: imageUrl || '',
                     createdAt: serverTimestamp()
                 });

@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة التحكم - ماركت الأخوة (نسخة محسنة)</title>
+    <title>لوحة التحكم - ماركت الأخوة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ========== المتغيرات والمظهر ========== */
         :root {
             --primary: #f27a1a;
-            --primary-dark: #d96a0e;
             --bg: #f5f5f5;
             --card-bg: #ffffff;
             --text: #333333;
@@ -20,8 +18,6 @@
             --info: #3498db;
             --input-bg: #f0f0f0;
             --shadow: rgba(0,0,0,0.05);
-            --radius: 12px;
-            --transition: 0.25s ease;
         }
         body.dark {
             --bg: #1a1a1a;
@@ -32,273 +28,246 @@
             --shadow: rgba(0,0,0,0.3);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); padding: 20px 10px 80px 10px; transition: background var(--transition), color var(--transition); }
+        body { background-color: var(--bg); color: var(--text); padding: 20px 10px 80px 10px; }
 
-        /* ========== تسجيل الدخول ========== */
         #loginOverlay {
-            position: fixed; top:0; left:0; right:0; bottom:0;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.85);
-            z-index:10000;
+            z-index: 10000;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding:20px;
+            padding: 20px;
         }
         .login-box {
             background: var(--card-bg);
-            padding:30px;
-            border-radius:var(--radius);
-            width:100%;
-            max-width:400px;
-            text-align:center;
-            box-shadow:0 8px 30px rgba(0,0,0,0.3);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
         }
-        .login-box h2 { margin-bottom:15px; color:var(--primary); }
+        .login-box h2 { margin-bottom: 15px; color: var(--primary); }
         .login-box input {
-            width:100%;
-            padding:10px;
-            margin-bottom:15px;
-            border:1px solid var(--border);
-            border-radius:6px;
-            background:var(--input-bg);
-            color:var(--text);
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text);
         }
 
-        /* ========== حاوية الإدارة ========== */
-        .admin-container { max-width:1400px; margin:0 auto; display:none; }
-        h1, h2, h3 { margin-bottom:15px; color:var(--primary); }
-        h1 i { margin-left:10px; }
-
-        /* ========== البطاقات ========== */
+        .admin-container { max-width: 1400px; margin: 0 auto; display: none; }
+        h1, h2, h3 { margin-bottom: 15px; color: var(--primary); }
         .card {
             background: var(--card-bg);
-            border-radius:var(--radius);
-            padding:20px;
-            margin-bottom:25px;
-            border:1px solid var(--border);
-            box-shadow:0 2px 12px var(--shadow);
-            transition:background var(--transition), border var(--transition);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px var(--shadow);
         }
 
-        /* ========== النماذج ========== */
-        .form-group { margin-bottom:15px; }
-        .form-group label { display:block; font-size:14px; font-weight:bold; margin-bottom:5px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
         .form-group input, .form-group select {
-            width:100%;
-            padding:10px;
-            border:1px solid var(--border);
-            border-radius:6px;
-            background:var(--input-bg);
-            color:var(--text);
-            transition:border var(--transition);
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text);
         }
-        .form-group input:focus, .form-group select:focus { outline:none; border-color:var(--primary); }
 
-        /* ========== الأزرار ========== */
         .btn {
-            background:var(--primary);
-            color:white;
-            border:none;
-            padding:10px 20px;
-            font-size:15px;
-            font-weight:bold;
-            border-radius:6px;
-            cursor:pointer;
-            display:inline-flex;
-            align-items:center;
-            gap:8px;
-            transition:opacity 0.2s, transform 0.1s;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.2s;
         }
-        .btn:disabled { opacity:0.6; cursor:not-allowed; }
-        .btn:hover:not(:disabled) { opacity:0.9; transform:scale(0.98); }
-        .btn-secondary { background:#6c757d; }
-        .btn-success { background:var(--success); }
-        .btn-danger { background:var(--danger); }
-        .btn-warning { background:var(--warning); }
-        .btn-info { background:var(--info); }
-        .btn-small { padding:5px 12px; font-size:12px; }
-        .btn-block { width:100%; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { opacity: 0.9; }
+        .btn-secondary { background: #6c757d; }
+        .btn-success { background: var(--success); }
+        .btn-danger { background: var(--danger); }
+        .btn-warning { background: var(--warning); }
+        .btn-info { background: var(--info); }
+        .btn-small { padding: 5px 10px; font-size: 12px; }
+        .btn-block { width: 100%; }
 
-        /* ========== الجداول ========== */
-        .table-responsive { overflow-x:auto; }
-        table { width:100%; border-collapse:collapse; margin-top:10px; }
-        th, td { padding:10px 8px; text-align:right; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle; }
-        th { background:var(--input-bg); font-weight:600; }
-        tr:hover td { background:rgba(242,122,26,0.05); }
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: right; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th { background: var(--input-bg); }
 
-        .product-img-preview { width:40px; height:40px; object-fit:cover; border-radius:6px; background:var(--input-bg); }
-
-        /* ========== بطاقات الطلبات ========== */
         .order-card {
-            border-right:4px solid var(--primary);
-            padding:15px;
-            margin-bottom:15px;
-            background:var(--card-bg);
-            border-radius:6px;
-            border:1px solid var(--border);
-            transition:background var(--transition);
+            border-right: 4px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 15px;
+            background: var(--card-bg);
+            border-radius: 4px;
+            border: 1px solid var(--border);
         }
-        .order-card:hover { background:var(--input-bg); }
 
-        /* ========== الشارات ========== */
-        .badge { background:var(--primary); color:white; padding:2px 10px; border-radius:20px; font-size:12px; display:inline-block; }
-        .badge-discount { background:var(--danger); }
-        .badge-status-new { background:var(--warning); }
-        .badge-status-processing { background:var(--info); }
-        .badge-status-delivered { background:var(--success); }
-        .badge-status-canceled { background:var(--danger); }
+        .product-img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
 
-        /* ========== الإحصائيات ========== */
+        .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+        .badge-discount { background: var(--danger); }
+        .badge-status-new { background: var(--warning); }
+        .badge-status-processing { background: var(--info); }
+        .badge-status-delivered { background: var(--success); }
+        .badge-status-canceled { background: var(--danger); }
+        .badge-available { background: var(--success); }
+        .badge-unavailable { background: var(--danger); }
+
         .stats-grid {
-            display:grid;
-            grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
-            gap:15px;
-            margin-bottom:20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
         }
         .stat-card {
-            background:var(--card-bg);
-            padding:15px;
-            border-radius:var(--radius);
-            border:1px solid var(--border);
-            text-align:center;
-            transition:transform 0.2s;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
         }
-        .stat-card:hover { transform:translateY(-3px); }
-        .stat-card .number { font-size:28px; font-weight:bold; color:var(--primary); }
-        .stat-card .label { font-size:13px; color:#888; }
+        .stat-card .number { font-size: 28px; font-weight: bold; color: var(--primary); }
+        .stat-card .label { font-size: 13px; color: #888; }
 
-        /* ========== شريط التصفية ========== */
-        .filter-bar {
-            display:flex;
-            flex-wrap:wrap;
-            gap:10px;
-            margin-bottom:15px;
-            align-items:center;
-        }
-        .filter-bar input, .filter-bar select {
-            padding:8px 12px;
-            border:1px solid var(--border);
-            border-radius:6px;
-            background:var(--input-bg);
-            color:var(--text);
-            min-width:140px;
-        }
-        .filter-bar .btn { padding:8px 16px; }
-
-        /* ========== الترحيل ========== */
-        .pagination {
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            gap:15px;
-            margin-top:15px;
-        }
-        .pagination button { padding:5px 15px; }
-
-        /* ========== زر الوضع الداكن ========== */
-        .dark-toggle {
-            position:fixed;
-            top:15px; left:15px;
-            background:var(--card-bg);
-            border:1px solid var(--border);
-            border-radius:50%;
-            width:44px; height:44px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-size:22px;
-            cursor:pointer;
-            z-index:999;
-            color:var(--text);
-            transition:background var(--transition), color var(--transition);
-            box-shadow:0 2px 8px var(--shadow);
-        }
-        .dark-toggle:hover { background:var(--primary); color:white; }
-
-        /* ========== المودال ========== */
         .modal-overlay {
-            display:none;
-            position:fixed;
-            top:0; left:0; right:0; bottom:0;
-            background:rgba(0,0,0,0.6);
-            z-index:9999;
-            justify-content:center;
-            align-items:center;
-            padding:20px;
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
         .modal-box {
-            background:var(--card-bg);
-            padding:25px;
-            border-radius:var(--radius);
-            max-width:500px;
-            width:100%;
-            max-height:90vh;
-            overflow-y:auto;
-            box-shadow:0 8px 30px rgba(0,0,0,0.3);
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .modal-box .close-btn {
-            float:left;
-            background:none;
-            border:none;
-            font-size:24px;
-            cursor:pointer;
-            color:var(--text);
+            float: left;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
         }
 
-        /* ========== توست ========== */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .filter-bar input, .filter-bar select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text);
+        }
+        .filter-bar .btn { padding: 8px 16px; }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .pagination button { padding: 5px 15px; }
+
+        .dark-toggle {
+            position: fixed;
+            top: 15px; left: 15px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; cursor: pointer; z-index: 999;
+            color: var(--text);
+        }
+
         .toast {
-            position:fixed;
-            bottom:20px;
-            left:50%;
-            transform:translateX(-50%);
-            background:var(--card-bg);
-            color:var(--text);
-            padding:12px 24px;
-            border-radius:8px;
-            border:1px solid var(--border);
-            box-shadow:0 4px 16px rgba(0,0,0,0.2);
-            z-index:99999;
-            display:none;
-            font-size:14px;
-            max-width:90%;
-            text-align:center;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            color: var(--text);
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 99999;
+            display: none;
+            font-size: 14px;
+            max-width: 90%;
         }
-        .toast.success { border-right:4px solid var(--success); }
-        .toast.error { border-right:4px solid var(--danger); }
-        .toast.info { border-right:4px solid var(--info); }
+        .toast.success { border-right: 4px solid var(--success); }
+        .toast.error { border-right: 4px solid var(--danger); }
+        .toast.info { border-right: 4px solid var(--info); }
 
-        /* ========== استجابة ========== */
-        @media (max-width:600px) {
-            .stats-grid { grid-template-columns:repeat(2,1fr); }
-            .filter-bar { flex-direction:column; align-items:stretch; }
-            .filter-bar input, .filter-bar select { width:100%; }
-            .dark-toggle { top:10px; left:10px; width:38px; height:38px; font-size:18px; }
+        .status-select { padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); }
+        .toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+            color: var(--text);
+        }
+        .toggle-btn:hover { opacity: 0.7; }
+
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .filter-bar { flex-direction: column; }
+            .filter-bar input, .filter-bar select { width: 100%; }
         }
     </style>
 </head>
 <body>
 
-    <!-- زر تبديل المظهر -->
     <button class="dark-toggle" id="adminDarkToggle" title="تبديل المظهر">
         <i class="fa-solid fa-moon" id="adminDarkIcon"></i>
     </button>
 
-    <!-- شاشة تسجيل الدخول -->
     <div id="loginOverlay">
         <div class="login-box">
             <h2><i class="fa-solid fa-lock"></i> دخول المسؤول</h2>
-            <p style="font-size:13px; color:#888; margin-bottom:15px;">أدخل كلمة المرور للوصول إلى لوحة التحكم</p>
-            <input type="password" id="adminPassInput" placeholder="كلمة المرور" autofocus>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">يرجى إدخال كلمة المرور للوصول إلى اللوحة</p>
+            <input type="password" id="adminPassInput" placeholder="أدخل كلمة المرور">
             <button class="btn btn-block" id="loginBtn">تسجيل الدخول</button>
         </div>
     </div>
 
-    <!-- المحتوى الرئيسي -->
     <div class="admin-container" id="adminMainContent">
 
         <h1><i class="fa-solid fa-user-gear"></i> لوحة إدارة المتجر</h1>
 
-        <!-- الإحصائيات -->
         <div class="card">
             <h2>📊 الإحصائيات</h2>
             <div class="stats-grid" id="statsGrid">
@@ -311,7 +280,6 @@
             </div>
         </div>
 
-        <!-- إضافة منتج -->
         <div class="card">
             <h2>➕ إضافة منتج جديد</h2>
             <form id="addProductForm">
@@ -338,18 +306,25 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>نسبة الخصم % (0-99):</label>
+                    <label>نسبة الخصم % (اختياري - 0-99):</label>
                     <input type="number" id="pDiscount" placeholder="0" min="0" max="99" value="0">
                 </div>
                 <div class="form-group">
                     <label>صورة المنتج:</label>
                     <input type="file" id="pImgFile" accept="image/*">
                 </div>
+                <!-- إضافة حقل الحالة -->
+                <div class="form-group">
+                    <label>الحالة:</label>
+                    <select id="pAvailability">
+                        <option value="true">متوفر</option>
+                        <option value="false">غير متوفر</option>
+                    </select>
+                </div>
                 <button type="submit" class="btn btn-block" id="saveProductBtn">💾 حفظ المنتج</button>
             </form>
         </div>
 
-        <!-- إدارة المنتجات -->
         <div class="card">
             <h2>📋 إدارة المنتجات</h2>
             <div class="filter-bar">
@@ -372,8 +347,7 @@
                     <option value="price_desc">السعر (تنازلي)</option>
                     <option value="name">الاسم</option>
                 </select>
-                <button class="btn btn-success btn-small" id="exportProductsBtn">📥 تصدير CSV</button>
-                <button class="btn btn-danger btn-small" id="deleteSelectedProductsBtn">🗑️ حذف المحدد</button>
+                <button class="btn btn-success btn-small" onclick="window.exportProductsCSV()">📥 تصدير CSV</button>
             </div>
             <div class="table-responsive">
                 <table>
@@ -386,11 +360,12 @@
                             <th>السعر</th>
                             <th>الخصم</th>
                             <th>القسم</th>
+                            <th>الحالة</th> <!-- عمود جديد -->
                             <th>إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="adminProductsTable">
-                        <tr><td colspan="8" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
+                        <tr><td colspan="9" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -401,7 +376,6 @@
             </div>
         </div>
 
-        <!-- الطلبات -->
         <div class="card">
             <h2>📦 الطلبات الواردة</h2>
             <div class="filter-bar">
@@ -413,9 +387,7 @@
                     <option value="تم التوصيل">تم التوصيل</option>
                     <option value="ملغي">ملغي</option>
                 </select>
-                <input type="date" id="adminOrderDateFrom" placeholder="من تاريخ">
-                <input type="date" id="adminOrderDateTo" placeholder="إلى تاريخ">
-                <button class="btn btn-success btn-small" id="exportOrdersBtn">📥 تصدير CSV</button>
+                <button class="btn btn-success btn-small" onclick="window.exportOrdersCSV()">📥 تصدير CSV</button>
             </div>
             <div id="ordersContainer"><p>جاري تحميل الطلبات...</p></div>
             <div class="pagination">
@@ -425,23 +397,11 @@
             </div>
         </div>
 
-        <!-- معلومات إضافية (كود الدعوة) -->
-        <div class="card">
-            <h2>🎁 نظام الدعوة</h2>
-            <div id="adminReferralInfo">
-                <p>كود الدعوة الخاص بك: <strong id="adminReferralCodeDisplay">---</strong></p>
-                <button class="btn btn-info btn-small" id="adminCopyReferralBtn">📋 نسخ الكود</button>
-                <button class="btn btn-primary btn-small" id="adminShareReferralBtn">📱 مشاركة</button>
-                <p style="margin-top:10px; font-size:13px; color:#888;">شارك الكود مع أصدقائك واحصل على خصم يصل إلى 50 ل.س لأول طلب فوق 100 ل.س</p>
-            </div>
-        </div>
-
     </div>
 
-    <!-- مودال تعديل المنتج -->
     <div class="modal-overlay" id="editModal">
         <div class="modal-box">
-            <button class="close-btn" onclick="closeEditModal()">✖</button>
+            <button class="close-btn" onclick="window.closeEditModal()">✖</button>
             <h3>✏️ تعديل المنتج</h3>
             <input type="hidden" id="editProductId">
             <div class="form-group">
@@ -470,54 +430,32 @@
                 <label>الخصم %:</label>
                 <input type="number" id="editDiscount" min="0" max="99">
             </div>
-            <button class="btn btn-block" id="saveEditBtn">💾 حفظ التعديلات</button>
+            <!-- إضافة حقل الحالة في التعديل -->
+            <div class="form-group">
+                <label>الحالة:</label>
+                <select id="editAvailability">
+                    <option value="true">متوفر</option>
+                    <option value="false">غير متوفر</option>
+                </select>
+            </div>
+            <button class="btn btn-block" onclick="window.saveEdit()">💾 حفظ التعديلات</button>
         </div>
     </div>
 
-    <!-- مودال تفاصيل الطلب -->
-    <div class="modal-overlay" id="orderDetailsModal">
-        <div class="modal-box">
-            <button class="close-btn" onclick="closeOrderDetails()">✖</button>
-            <h3>📄 تفاصيل الطلب</h3>
-            <div id="orderDetailsContent"></div>
-        </div>
-    </div>
-
-    <!-- توست -->
     <div id="customToast" class="toast">
         <span id="toastMessage"></span>
     </div>
 
     <script type="module">
-        // ============================================================
-        //  استيراد كل ما نحتاجه من app.js
-        // ============================================================
         import {
-            db,
-            collection,
-            addDoc,
-            onSnapshot,
-            doc,
-            deleteDoc,
-            updateDoc,
-            query,
-            orderBy,
-            serverTimestamp,
-            escapeHTML,
-            uploadImageToImgBB,
-            toggleDarkMode,
-            loadDarkModePreference,
-            showToast,
-            getMyReferralCode,
-            copyReferralCode,
-            shareReferral,
-            getFavorites,
-            toggleFavorite
+            db, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc,
+            query, orderBy, serverTimestamp, escapeHTML,
+            uploadImageToImgBB, toggleDarkMode, loadDarkModePreference
         } from './app.js';
 
-        // ============================================================
+        // ====================================================
         //  الحالة العامة للوحة
-        // ============================================================
+        // ====================================================
         const adminState = {
             products: [],
             orders: [],
@@ -531,22 +469,63 @@
             sortProducts: 'newest',
             searchOrders: '',
             filterOrderStatus: 'all',
-            dateFrom: '',
-            dateTo: '',
-            selectedProducts: new Set(),
+            selectedProducts: [],
+            selectedOrders: []
         };
 
-        // ============================================================
-        //  ربط الدوال بالنافذة للاستخدام في onclick
-        // ============================================================
-        window.showToast = showToast;
-        window.escapeHTML = escapeHTML;
-        window.toggleDarkMode = toggleDarkMode;
-        window.loadDarkModePreference = loadDarkModePreference;
+        // ====================================================
+        //  توست مخصص
+        // ====================================================
+        function showToast(message, type = 'info', duration = 3000) {
+            const toast = document.getElementById('customToast');
+            const toastMsg = document.getElementById('toastMessage');
+            if (!toast || !toastMsg) { alert(message); return; }
+            toastMsg.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'flex';
+            clearTimeout(toast._hideTimer);
+            toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
+        }
 
-        // ============================================================
-        //  دوال التعديل والحذف
-        // ============================================================
+        // ====================================================
+        //  التحميل الأساسي
+        // ====================================================
+        loadDarkModePreference();
+        document.getElementById('adminDarkToggle')?.addEventListener('click', toggleDarkMode);
+
+        function checkAdminPassword() {
+            const pass = document.getElementById('adminPassInput').value;
+            if (pass === "123456") {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('adminMainContent').style.display = 'block';
+                initAdminDashboard();
+            } else {
+                showToast('كلمة المرور غير صحيحة!', 'error');
+            }
+        }
+        document.getElementById('loginBtn')?.addEventListener('click', checkAdminPassword);
+        document.getElementById('adminPassInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') checkAdminPassword();
+        });
+
+        // ====================================================
+        //  دالة تبديل حالة التوفر
+        // ====================================================
+        window.toggleAvailability = async function(id) {
+            const product = adminState.products.find(p => p.id === id);
+            if (!product) { showToast('المنتج غير موجود', 'error'); return; }
+            const newStatus = !product.available;
+            try {
+                await updateDoc(doc(db, "products", id), { available: newStatus });
+                showToast(`✅ تم تغيير الحالة إلى ${newStatus ? 'متوفر' : 'غير متوفر'}`, 'success');
+            } catch (e) {
+                showToast('❌ خطأ: ' + e.message, 'error');
+            }
+        };
+
+        // ====================================================
+        //  دالة حذف المنتج
+        // ====================================================
         window.deleteProduct = async function(id) {
             if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
             try {
@@ -557,6 +536,9 @@
             }
         };
 
+        // ====================================================
+        //  دالة حذف الطلب
+        // ====================================================
         window.deleteOrder = async function(id) {
             if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
             try {
@@ -567,15 +549,21 @@
             }
         };
 
+        // ====================================================
+        //  دالة تحديث حالة الطلب
+        // ====================================================
         window.updateOrderStatus = async function(id, status) {
             try {
-                await updateDoc(doc(db, "orders", id), { status });
+                await updateDoc(doc(db, "orders", id), { status: status });
                 showToast('✅ تم تحديث الحالة', 'success');
             } catch (e) {
                 showToast('❌ خطأ: ' + e.message, 'error');
             }
         };
 
+        // ====================================================
+        //  دالة فتح نافذة التعديل
+        // ====================================================
         window.editProduct = function(id) {
             const product = adminState.products.find(p => p.id === id);
             if (!product) { showToast('المنتج غير موجود', 'error'); return; }
@@ -584,6 +572,9 @@
             document.getElementById('editPrice').value = product.price || 0;
             document.getElementById('editCategory').value = product.category || 'مؤن';
             document.getElementById('editDiscount').value = product.discount || 0;
+            // تعيين الحالة في المودال
+            const avail = product.available !== undefined ? product.available : true;
+            document.getElementById('editAvailability').value = avail ? 'true' : 'false';
             document.getElementById('editModal').style.display = 'flex';
         };
 
@@ -591,19 +582,23 @@
             document.getElementById('editModal').style.display = 'none';
         };
 
+        // ====================================================
+        //  دالة حفظ التعديل
+        // ====================================================
         window.saveEdit = async function() {
             const id = document.getElementById('editProductId').value;
             const name = document.getElementById('editName').value.trim();
             const price = Number(document.getElementById('editPrice').value);
             const category = document.getElementById('editCategory').value;
             const discount = Number(document.getElementById('editDiscount').value) || 0;
+            const available = document.getElementById('editAvailability').value === 'true';
 
             if (!name) { showToast('الاسم مطلوب', 'error'); return; }
             if (price <= 0) { showToast('السعر غير صحيح', 'error'); return; }
             if (discount < 0 || discount > 99) { showToast('الخصم بين 0 و 99', 'error'); return; }
 
             try {
-                await updateDoc(doc(db, "products", id), { name, price, category, discount });
+                await updateDoc(doc(db, "products", id), { name, price, category, discount, available });
                 showToast('✅ تم التعديل', 'success');
                 document.getElementById('editModal').style.display = 'none';
             } catch (e) {
@@ -611,111 +606,75 @@
             }
         };
 
-        // ============================================================
-        //  عرض تفاصيل الطلب
-        // ============================================================
-        window.viewOrderDetails = function(id) {
-            const order = adminState.orders.find(o => o.id === id);
-            if (!order) { showToast('الطلب غير موجود', 'error'); return; }
-            const content = document.getElementById('orderDetailsContent');
-            content.innerHTML = `
-                <p><strong>رقم الطلب:</strong> ${order.id}</p>
-                <p><strong>الهاتف:</strong> ${escapeHTML(order.phone)}</p>
-                <p><strong>العنوان:</strong> ${escapeHTML(order.address)}</p>
-                <p><strong>المنتجات:</strong> ${escapeHTML(order.items)}</p>
-                <p><strong>الإجمالي:</strong> ${order.total} ل.س</p>
-                <p><strong>الحالة:</strong> ${order.status || 'جديد'}</p>
-                <p><strong>التاريخ:</strong> ${order.date || 'غير معروف'}</p>
-                ${order.deliveryType ? `<p><strong>نوع التوصيل:</strong> ${escapeHTML(order.deliveryType)}</p>` : ''}
-            `;
-            document.getElementById('orderDetailsModal').style.display = 'flex';
-        };
-
-        window.closeOrderDetails = function() {
-            document.getElementById('orderDetailsModal').style.display = 'none';
-        };
-
-        // ============================================================
-        //  تصدير CSV (مع معالجة الفواصل)
-        // ============================================================
-        function escapeCsvValue(value) {
-            if (value == null) return '';
-            const str = String(value);
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-        }
-
-        function exportToCSV(data, headers, filename) {
-            if (!data.length) { showToast('لا توجد بيانات', 'error'); return; }
-            const headerLine = headers.map(h => escapeCsvValue(h)).join(',');
-            const rows = data.map(item => headers.map(h => escapeCsvValue(item[h] || '')).join(','));
-            const csv = [headerLine, ...rows].join('\n');
+        // ====================================================
+        //  تصدير المنتجات CSV
+        // ====================================================
+        window.exportProductsCSV = function() {
+            const products = adminState.filteredProducts.length ? adminState.filteredProducts : adminState.products;
+            if (!products.length) { showToast('لا توجد منتجات', 'error'); return; }
+            const headers = ['#', 'الاسم', 'السعر', 'الخصم', 'القسم', 'متوفر'];
+            const rows = products.map((p, i) => [i+1, p.name, p.price, p.discount||0, p.category, p.available !== false ? 'نعم' : 'لا']);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `${filename}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.download = `products_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
             showToast('✅ تم التصدير', 'success');
-        }
-
-        window.exportProductsCSV = function() {
-            const products = adminState.filteredProducts.length ? adminState.filteredProducts : adminState.products;
-            const headers = ['id', 'name', 'price', 'discount', 'category'];
-            exportToCSV(products, headers, 'products');
         };
 
+        // ====================================================
+        //  تصدير الطلبات CSV
+        // ====================================================
         window.exportOrdersCSV = function() {
             const orders = adminState.filteredOrders.length ? adminState.filteredOrders : adminState.orders;
-            const headers = ['id', 'phone', 'address', 'items', 'total', 'status', 'date'];
-            exportToCSV(orders, headers, 'orders');
+            if (!orders.length) { showToast('لا توجد طلبات', 'error'); return; }
+            const headers = ['#', 'الهاتف', 'العنوان', 'المنتجات', 'الإجمالي', 'الحالة', 'التاريخ'];
+            const rows = orders.map((o, i) => [
+                i+1, o.phone || '', o.address || '', o.items || '', o.total || 0, o.status || 'جديد', o.date || ''
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `orders_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            showToast('✅ تم التصدير', 'success');
         };
 
-        // ============================================================
-        //  حذف منتجات محددة (مع تحسين الأداء)
-        // ============================================================
-        window.deleteSelectedProducts = async function() {
-            const ids = Array.from(adminState.selectedProducts);
-            if (!ids.length) { showToast('لم تختار أي منتج', 'error'); return; }
-            if (!confirm(`هل أنت متأكد من حذف ${ids.length} منتج؟`)) return;
-            try {
-                const batch = ids.map(id => deleteDoc(doc(db, "products", id)));
-                await Promise.allSettled(batch); // لا يرمي خطأ إذا فشل البعض
-                adminState.selectedProducts.clear();
-                showToast(`✅ تم حذف ${ids.length} منتج`, 'success');
-            } catch (e) {
-                showToast('❌ خطأ: ' + e.message, 'error');
-            }
-        };
-
-        // ============================================================
+        // ====================================================
         //  عرض المنتجات في الجدول
-        // ============================================================
+        // ====================================================
         function renderProductsTable() {
             const tbody = document.getElementById('adminProductsTable');
             if (!tbody) return;
 
             let filtered = [...adminState.products];
 
+            // بحث
             if (adminState.searchProducts) {
                 const q = adminState.searchProducts.toLowerCase();
                 filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(q));
             }
+
+            // فلتر القسم
             if (adminState.filterCategory !== 'all') {
                 filtered = filtered.filter(p => p.category === adminState.filterCategory);
             }
 
+            // ترتيب
             switch (adminState.sortProducts) {
-                case 'price_asc': filtered.sort((a,b) => (a.price||0) - (b.price||0)); break;
-                case 'price_desc': filtered.sort((a,b) => (b.price||0) - (a.price||0)); break;
-                case 'name': filtered.sort((a,b) => (a.name||'').localeCompare(b.name||'')); break;
+                case 'price_asc': filtered.sort((a, b) => (a.price || 0) - (b.price || 0)); break;
+                case 'price_desc': filtered.sort((a, b) => (b.price || 0) - (a.price || 0)); break;
+                case 'name': filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '')); break;
                 default: break;
             }
 
             adminState.filteredProducts = filtered;
 
+            // ترحيل
             const total = filtered.length;
             const totalPages = Math.ceil(total / adminState.pageSize) || 1;
             if (adminState.productsPage > totalPages) adminState.productsPage = totalPages;
@@ -728,7 +687,7 @@
             document.getElementById('adminProductsNext').disabled = adminState.productsPage >= totalPages;
 
             if (!pageItems.length) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">لا توجد منتجات</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">لا توجد منتجات</td></tr>';
                 return;
             }
 
@@ -736,22 +695,34 @@
                 const realIndex = start + index + 1;
                 const imgUrl = String(p.imageUrl || '').trim();
                 const isValid = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
-                // ✅ تم إصلاح الخطأ: نستخدم imgUrl مباشرة بدون escapeHTML
                 const imgTag = isValid ?
-                    `<img src="${imgUrl}" class="product-img-preview" onerror="this.style.display='none';">` :
+                    `<img src="${escapeHTML(imgUrl)}" class="product-img-preview" onerror="this.style.display='none';">` :
                     '<i class="fa-solid fa-basket-shopping" style="font-size:20px;color:#aaa;"></i>';
-                const discountBadge = (p.discount && p.discount > 0) ?
+                const discountBadge = p.discount && p.discount > 0 ?
                     `<span class="badge badge-discount">-${p.discount}%</span>` : '—';
-                const checked = adminState.selectedProducts.has(p.id) ? 'checked' : '';
+                // حالة التوفر
+                const isAvailable = p.available !== false; // true افتراضيًا
+                const availIcon = isAvailable ?
+                    `<i class="fa-solid fa-check-circle" style="color:var(--success);"></i>` :
+                    `<i class="fa-solid fa-times-circle" style="color:var(--danger);"></i>`;
+                const availText = isAvailable ? 'متوفر' : 'غير متوفر';
+                const availBadge = `<span class="badge ${isAvailable ? 'badge-available' : 'badge-unavailable'}">${availText}</span>`;
+
                 return `
                     <tr>
-                        <td><input type="checkbox" class="product-checkbox" value="${p.id}" ${checked}></td>
+                        <td><input type="checkbox" class="product-checkbox" value="${p.id}"></td>
                         <td>${realIndex}</td>
                         <td>${imgTag}</td>
                         <td>${escapeHTML(p.name)}</td>
                         <td>${escapeHTML(p.price)} ل.س</td>
                         <td>${discountBadge}</td>
                         <td>${escapeHTML(p.category)}</td>
+                        <td>
+                            <button class="toggle-btn" onclick="window.toggleAvailability('${p.id}')" title="تبديل الحالة">
+                                ${availIcon}
+                            </button>
+                            ${availBadge}
+                        </td>
                         <td style="display:flex;gap:4px;flex-wrap:wrap;">
                             <button class="btn btn-info btn-small" onclick="window.editProduct('${p.id}')">✏️</button>
                             <button class="btn btn-danger btn-small" onclick="window.deleteProduct('${p.id}')">🗑️</button>
@@ -761,19 +732,19 @@
             }).join('');
 
             // تحديث تحديد الكل
-            const allChecked = pageItems.every(p => adminState.selectedProducts.has(p.id));
-            document.getElementById('selectAllProducts').checked = allChecked;
+            document.getElementById('selectAllProducts').checked = false;
         }
 
-        // ============================================================
-        //  عرض الطلبات (فلترة التاريخ محسنة باستخدام createdAt)
-        // ============================================================
+        // ====================================================
+        //  عرض الطلبات
+        // ====================================================
         function renderOrders() {
             const container = document.getElementById('ordersContainer');
             if (!container) return;
 
             let filtered = [...adminState.orders];
 
+            // بحث
             if (adminState.searchOrders) {
                 const q = adminState.searchOrders.toLowerCase();
                 filtered = filtered.filter(o =>
@@ -782,32 +753,22 @@
                     (o.items || '').toLowerCase().includes(q)
                 );
             }
+
+            // فلتر الحالة
             if (adminState.filterOrderStatus !== 'all') {
                 filtered = filtered.filter(o => o.status === adminState.filterOrderStatus);
             }
-            // ✅ فلترة باستخدام createdAt (timestamp) بدلاً من النص
-            if (adminState.dateFrom) {
-                const from = new Date(adminState.dateFrom);
-                from.setHours(0,0,0,0);
-                filtered = filtered.filter(o => {
-                    const ts = o.createdAt?.seconds || 0;
-                    const d = ts ? new Date(ts*1000) : new Date(0);
-                    return d >= from;
-                });
-            }
-            if (adminState.dateTo) {
-                const to = new Date(adminState.dateTo);
-                to.setHours(23,59,59,999);
-                filtered = filtered.filter(o => {
-                    const ts = o.createdAt?.seconds || 0;
-                    const d = ts ? new Date(ts*1000) : new Date(0);
-                    return d <= to;
-                });
-            }
 
-            filtered.sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+            // ترتيب (الأحدث أولاً)
+            filtered.sort((a, b) => {
+                const dateA = a.createdAt?.seconds || 0;
+                const dateB = b.createdAt?.seconds || 0;
+                return dateB - dateA;
+            });
+
             adminState.filteredOrders = filtered;
 
+            // ترحيل
             const total = filtered.length;
             const totalPages = Math.ceil(total / adminState.pageSize) || 1;
             if (adminState.ordersPage > totalPages) adminState.ordersPage = totalPages;
@@ -846,7 +807,6 @@
                             <div>
                                 <strong>#${realIndex}</strong>
                                 <span class="badge ${badgeClass}">${status}</span>
-                                <button class="btn btn-info btn-small" onclick="window.viewOrderDetails('${order.id}')">📄</button>
                             </div>
                             <small style="color:#888;">📅 ${date}</small>
                         </div>
@@ -867,9 +827,9 @@
             }).join('');
         }
 
-        // ============================================================
+        // ====================================================
         //  تحديث الإحصائيات
-        // ============================================================
+        // ====================================================
         function updateStats() {
             const orders = adminState.orders;
             const products = adminState.products;
@@ -877,16 +837,15 @@
             document.getElementById('statTotalOrders').textContent = orders.length;
             document.getElementById('statTotalProducts').textContent = products.length;
 
-            let totalSales = 0, dailySales = 0, canceled = 0;
+            let totalSales = 0;
+            let dailySales = 0;
+            let canceled = 0;
             const today = new Date().toDateString();
 
             orders.forEach(o => {
                 totalSales += Number(o.total) || 0;
                 if (o.status === 'ملغي') canceled++;
-                // ✅ حساب مبيعات اليوم باستخدام createdAt
-                const ts = o.createdAt?.seconds || 0;
-                const orderDate = ts ? new Date(ts*1000) : new Date(o.date);
-                if (orderDate.toDateString() === today) {
+                if (o.date && new Date(o.date).toDateString() === today) {
                     dailySales += Number(o.total) || 0;
                 }
             });
@@ -897,18 +856,10 @@
             document.getElementById('statAvgOrder').textContent = orders.length ? Math.round(totalSales / orders.length) : 0;
         }
 
-        // ============================================================
+        // ====================================================
         //  تهيئة لوحة التحكم
-        // ============================================================
+        // ====================================================
         function initAdminDashboard() {
-            // عرض كود الدعوة
-            try {
-                const code = getMyReferralCode();
-                document.getElementById('adminReferralCodeDisplay').textContent = code;
-            } catch (e) {}
-
-            document.getElementById('adminCopyReferralBtn')?.addEventListener('click', copyReferralCode);
-            document.getElementById('adminShareReferralBtn')?.addEventListener('click', shareReferral);
 
             // استماع المنتجات
             const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
@@ -918,8 +869,7 @@
                 updateStats();
             }, (error) => {
                 document.getElementById('adminProductsTable').innerHTML =
-                    `<tr><td colspan="8" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
-                showToast('فشل تحميل المنتجات', 'error');
+                    `<tr><td colspan="9" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
             });
 
             // استماع الطلبات
@@ -931,7 +881,6 @@
             }, (error) => {
                 document.getElementById('ordersContainer').innerHTML =
                     `<p style="color:red;">خطأ: ${error.message}</p>`;
-                showToast('فشل تحميل الطلبات', 'error');
             });
 
             // أحداث البحث والفلتر
@@ -964,18 +913,6 @@
                 renderOrders();
             });
 
-            document.getElementById('adminOrderDateFrom')?.addEventListener('change', (e) => {
-                adminState.dateFrom = e.target.value;
-                adminState.ordersPage = 1;
-                renderOrders();
-            });
-
-            document.getElementById('adminOrderDateTo')?.addEventListener('change', (e) => {
-                adminState.dateTo = e.target.value;
-                adminState.ordersPage = 1;
-                renderOrders();
-            });
-
             // أزرار الترحيل
             document.getElementById('adminProductsPrev')?.addEventListener('click', () => {
                 if (adminState.productsPage > 1) { adminState.productsPage--; renderProductsTable(); }
@@ -997,55 +934,17 @@
 
             // تحديد الكل للمنتجات
             document.getElementById('selectAllProducts')?.addEventListener('change', (e) => {
-                const checkboxes = document.querySelectorAll('.product-checkbox');
-                checkboxes.forEach(cb => {
-                    cb.checked = e.target.checked;
-                    const id = cb.value;
-                    if (e.target.checked) adminState.selectedProducts.add(id);
-                    else adminState.selectedProducts.delete(id);
-                });
+                document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = e.target.checked);
             });
 
-            // استماع تغيير checkboxes فردية
-            document.addEventListener('change', (e) => {
-                if (e.target.classList.contains('product-checkbox')) {
-                    const id = e.target.value;
-                    if (e.target.checked) adminState.selectedProducts.add(id);
-                    else adminState.selectedProducts.delete(id);
-                }
-            });
-
-            // أزرار التصدير والحذف الجماعي
-            document.getElementById('exportProductsBtn')?.addEventListener('click', window.exportProductsCSV);
-            document.getElementById('exportOrdersBtn')?.addEventListener('click', window.exportOrdersCSV);
-            document.getElementById('deleteSelectedProductsBtn')?.addEventListener('click', window.deleteSelectedProducts);
-
-            // حفظ التعديل
-            document.getElementById('saveEditBtn')?.addEventListener('click', window.saveEdit);
+            // ربط الدوال للنافذة
+            window.showToast = showToast;
+            window.escapeHTML = escapeHTML;
         }
 
-        // ============================================================
-        //  تسجيل الدخول
-        // ============================================================
-        function checkAdminPassword() {
-            const pass = document.getElementById('adminPassInput').value;
-            if (pass === "123456") {
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('adminMainContent').style.display = 'block';
-                initAdminDashboard();
-            } else {
-                showToast('كلمة المرور غير صحيحة!', 'error');
-            }
-        }
-
-        document.getElementById('loginBtn')?.addEventListener('click', checkAdminPassword);
-        document.getElementById('adminPassInput')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') checkAdminPassword();
-        });
-
-        // ============================================================
+        // ====================================================
         //  إضافة منتج جديد
-        // ============================================================
+        // ====================================================
         document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -1054,6 +953,7 @@
             const category = document.getElementById('pCategory').value;
             const discount = Number(document.getElementById('pDiscount').value) || 0;
             const fileInput = document.getElementById('pImgFile');
+            const available = document.getElementById('pAvailability').value === 'true';
 
             if (!name) { showToast('اسم المنتج مطلوب', 'error'); return; }
             if (price <= 0) { showToast('السعر غير صحيح', 'error'); return; }
@@ -1070,6 +970,7 @@
                 }
                 await addDoc(collection(db, "products"), {
                     name, price, category, discount,
+                    available, // إضافة الحالة
                     imageUrl: imageUrl || '',
                     createdAt: serverTimestamp()
                 });
@@ -1083,13 +984,6 @@
             }
         });
 
-        // ============================================================
-        //  تطبيق الوضع الداكن
-        // ============================================================
-        loadDarkModePreference();
-        document.getElementById('adminDarkToggle')?.addEventListener('click', toggleDarkMode);
-
-        console.log('🚀 لوحة التحكم المحسنة جاهزة للنشر!');
     </script>
 </body>
 </html>

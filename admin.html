@@ -123,6 +123,8 @@
 
         .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
         .badge-discount { background: var(--danger); }
+        .badge-available { background: var(--success); }
+        .badge-unavailable { background: var(--danger); }
         .badge-status-new { background: var(--warning); }
         .badge-status-processing { background: var(--info); }
         .badge-status-delivered { background: var(--success); }
@@ -270,7 +272,7 @@
             </div>
         </div>
 
-        <!-- تم نقل قسم الطلبات الواردة إلى هنا ليظهر في الأعلى -->
+        <!-- قسم الطلبات الواردة في الأعلى -->
         <div class="card">
             <h2>📦 الطلبات الواردة</h2>
             <div class="filter-bar">
@@ -322,6 +324,14 @@
                     <label>نسبة الخصم % (اختياري - 0-99):</label>
                     <input type="number" id="pDiscount" placeholder="0" min="0" max="99" value="0">
                 </div>
+                <!-- حقل حالة المنتج (جديد) -->
+                <div class="form-group">
+                    <label>حالة المنتج:</label>
+                    <select id="pInStock">
+                        <option value="true">متوفر</option>
+                        <option value="false">غير متوفر (نافد)</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>صورة المنتج:</label>
                     <input type="file" id="pImgFile" accept="image/*">
@@ -365,12 +375,13 @@
                             <th>الاسم</th>
                             <th>السعر</th>
                             <th>الخصم</th>
+                            <th>الحالة</th> <!-- عمود جديد -->
                             <th>القسم</th>
                             <th>إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="adminProductsTable">
-                        <tr><td colspan="8" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
+                        <tr><td colspan="9" style="text-align:center;">جاري تحميل المنتجات...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -383,6 +394,7 @@
 
     </div>
 
+    <!-- نافذة التعديل Moadl -->
     <div class="modal-overlay" id="editModal">
         <div class="modal-box">
             <button class="close-btn" onclick="window.closeEditModal()">✖</button>
@@ -413,6 +425,14 @@
             <div class="form-group">
                 <label>الخصم %:</label>
                 <input type="number" id="editDiscount" min="0" max="99">
+            </div>
+            <!-- حقل تعديل حالة التوفر -->
+            <div class="form-group">
+                <label>حالة المنتج:</label>
+                <select id="editInStock">
+                    <option value="true">متوفر</option>
+                    <option value="false">غير متوفر (نافد)</option>
+                </select>
             </div>
             <button class="btn btn-block" onclick="window.saveEdit()">💾 حفظ التعديلات</button>
         </div>
@@ -485,6 +505,18 @@
         });
 
         // ====================================================
+        //  دالة التبديل السريع لحالة المنتج (متوفر / غير متوفر)
+        // ====================================================
+        window.toggleStockStatus = async function(id, currentStatus) {
+            try {
+                await updateDoc(doc(db, "products", id), { inStock: !currentStatus });
+                showToast('✅ تم تغيير حالة التوفر', 'success');
+            } catch (e) {
+                showToast('❌ خطأ: ' + e.message, 'error');
+            }
+        };
+
+        // ====================================================
         //  دالة حذف المنتج
         // ====================================================
         window.deleteProduct = async function(id) {
@@ -533,6 +565,7 @@
             document.getElementById('editPrice').value = product.price || 0;
             document.getElementById('editCategory').value = product.category || 'مؤن';
             document.getElementById('editDiscount').value = product.discount || 0;
+            document.getElementById('editInStock').value = product.inStock !== false ? "true" : "false";
             document.getElementById('editModal').style.display = 'flex';
         };
 
@@ -549,13 +582,14 @@
             const price = Number(document.getElementById('editPrice').value);
             const category = document.getElementById('editCategory').value;
             const discount = Number(document.getElementById('editDiscount').value) || 0;
+            const inStock = document.getElementById('editInStock').value === "true";
 
             if (!name) { showToast('الاسم مطلوب', 'error'); return; }
             if (price <= 0) { showToast('السعر غير صحيح', 'error'); return; }
             if (discount < 0 || discount > 99) { showToast('الخصم بين 0 و 99', 'error'); return; }
 
             try {
-                await updateDoc(doc(db, "products", id), { name, price, category, discount });
+                await updateDoc(doc(db, "products", id), { name, price, category, discount, inStock });
                 showToast('✅ تم التعديل', 'success');
                 document.getElementById('editModal').style.display = 'none';
             } catch (e) {
@@ -569,8 +603,8 @@
         window.exportProductsCSV = function() {
             const products = adminState.filteredProducts.length ? adminState.filteredProducts : adminState.products;
             if (!products.length) { showToast('لا توجد منتجات', 'error'); return; }
-            const headers = ['#', 'الاسم', 'السعر', 'الخصم', 'القسم'];
-            const rows = products.map((p, i) => [i+1, p.name, p.price, p.discount||0, p.category]);
+            const headers = ['#', 'الاسم', 'السعر', 'الخصم', 'الحالة', 'القسم'];
+            const rows = products.map((p, i) => [i+1, p.name, p.price, p.discount||0, p.inStock !== false ? 'متوفر' : 'غير متوفر', p.category]);
             const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
@@ -644,7 +678,7 @@
             document.getElementById('adminProductsNext').disabled = adminState.productsPage >= totalPages;
 
             if (!pageItems.length) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">لا توجد منتجات</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">لا توجد منتجات</td></tr>';
                 return;
             }
 
@@ -657,6 +691,13 @@
                     '<i class="fa-solid fa-basket-shopping" style="font-size:20px;color:#aaa;"></i>';
                 const discountBadge = p.discount && p.discount > 0 ?
                     `<span class="badge badge-discount">-${p.discount}%</span>` : '—';
+                
+                // حالة التوفر
+                const isAvailable = p.inStock !== false;
+                const stockBadge = isAvailable ? 
+                    `<button class="btn btn-success btn-small" onclick="window.toggleStockStatus('${p.id}', true)">✅ متوفر</button>` :
+                    `<button class="btn btn-danger btn-small" onclick="window.toggleStockStatus('${p.id}', false)">❌ غير متوفر</button>`;
+
                 return `
                     <tr>
                         <td><input type="checkbox" class="product-checkbox" value="${p.id}"></td>
@@ -665,6 +706,7 @@
                         <td>${escapeHTML(p.name)}</td>
                         <td>${escapeHTML(p.price)} ل.س</td>
                         <td>${discountBadge}</td>
+                        <td>${stockBadge}</td>
                         <td>${escapeHTML(p.category)}</td>
                         <td style="display:flex;gap:4px;flex-wrap:wrap;">
                             <button class="btn btn-info btn-small" onclick="window.editProduct('${p.id}')">✏️</button>
@@ -812,7 +854,7 @@
                 updateStats();
             }, (error) => {
                 document.getElementById('adminProductsTable').innerHTML =
-                    `<tr><td colspan="8" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
+                    `<tr><td colspan="9" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
             });
 
             // استماع الطلبات
@@ -895,6 +937,7 @@
             const price = Number(document.getElementById('pPrice').value);
             const category = document.getElementById('pCategory').value;
             const discount = Number(document.getElementById('pDiscount').value) || 0;
+            const inStock = document.getElementById('pInStock').value === "true";
             const fileInput = document.getElementById('pImgFile');
 
             if (!name) { showToast('اسم المنتج مطلوب', 'error'); return; }
@@ -911,7 +954,7 @@
                     imageUrl = await uploadImageToImgBB(fileInput.files[0]);
                 }
                 await addDoc(collection(db, "products"), {
-                    name, price, category, discount,
+                    name, price, category, discount, inStock,
                     imageUrl: imageUrl || '',
                     createdAt: serverTimestamp()
                 });

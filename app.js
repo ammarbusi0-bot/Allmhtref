@@ -1,5 +1,5 @@
 // ============================================================
-//  المتجر الأخوي - النسخة المأمنة والمعدلة
+//  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -9,9 +9,19 @@ import {
     addDoc,
     onSnapshot,
     doc,
+    deleteDoc,
     query,
     orderBy,
     serverTimestamp,
+    getDocs,
+    writeBatch,
+    limit,
+    startAfter,
+    getCountFromServer,
+    where,
+    updateDoc,
+    arrayUnion,
+    arrayRemove,
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -31,6 +41,7 @@ const db = getFirestore(app);
 
 let unsubscribeProducts = null;
 let lastOrderTime = 0; // لحماية المتجر من هجمات الإغراق (Rate Limiting)
+window._displayedCount = 0;
 
 // ============================================================
 //  الحالة العامة للتطبيق (State Management)
@@ -46,12 +57,16 @@ let state = {
     deliveryKm: 1,
     isSubmitting: false,
     isDarkMode: false,
+    user: null,
+    lastDoc: null,
+    hasMore: true,
+    isLoading: false,
     pageSize: 20,
+    referralCode: '',
     discountApplied: false,
-    invitedBy: null
+    invitedBy: null,
+    referralPoints: {}
 };
-
-window._displayedCount = 0;
 
 // ============================================================
 //  أدوات مساعدة (Utilities)
@@ -86,6 +101,54 @@ export function showToast(message, type = 'info', duration = 3500) {
 }
 
 // ============================================================
+//  نظام المستخدمين
+// ============================================================
+export function getUser() {
+    try {
+        const data = localStorage.getItem('alukhowah_user');
+        return data ? JSON.parse(data) : null;
+    } catch { return null; }
+}
+
+export function setUser(userData) {
+    localStorage.setItem('alukhowah_user', JSON.stringify(userData));
+    state.user = userData;
+    updateUserUI();
+}
+
+export function logoutUser() {
+    localStorage.removeItem('alukhowah_user');
+    state.user = null;
+    updateUserUI();
+    showToast('تم تسجيل الخروج', 'info');
+}
+
+export function updateUserUI() {
+    const userInfo = document.getElementById('userInfo');
+    if (!userInfo) return;
+    if (state.user) {
+        userInfo.innerHTML = `
+            <span>👤 ${escapeHTML(state.user.name || 'مستخدم')}</span>
+            <button onclick="window.logoutUser()" class="btn-secondary">خروج</button>
+        `;
+    } else {
+        userInfo.innerHTML = `<button onclick="window.showLoginModal()" class="btn-primary">تسجيل الدخول</button>`;
+    }
+}
+
+export function showLoginModal() {
+    const phone = prompt('أدخل رقم الهاتف:');
+    if (!phone || !validatePhone(phone)) {
+        showToast('رقم هاتف غير صحيح', 'error');
+        return;
+    }
+    const name = prompt('أدخل اسمك:') || 'مستخدم';
+    const address = prompt('أدخل عنوانك:') || '';
+    setUser({ phone, name, address, orders: [] });
+    showToast(`مرحباً ${name}`, 'success');
+}
+
+// ============================================================
 //  نظام الدعوة والخصم
 // ============================================================
 export function getMyReferralCode() {
@@ -98,13 +161,22 @@ export function getMyReferralCode() {
     return code;
 }
 
+export function getInviteLink() {
+    return `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
+}
+
 export function handleReferral() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     const myCode = getMyReferralCode();
     if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
         localStorage.setItem('invitedBy', ref);
+        localStorage.setItem('referralUsed', 'true');
         state.invitedBy = ref;
+        let points = JSON.parse(localStorage.getItem('referralPoints') || '{}');
+        points[ref] = (points[ref] || 0) + 1;
+        localStorage.setItem('referralPoints', JSON.stringify(points));
+        state.referralPoints = points;
         setTimeout(() => {
             showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر!', 'success', 5000);
         }, 500);
@@ -118,10 +190,14 @@ export function getReferralDiscount(total) {
     return Math.round(total * 0.10);
 }
 
-export function applyReferralDiscount() {
-    localStorage.setItem('discountApplied', 'true');
-    localStorage.setItem('referralUsed', 'true');
-    state.discountApplied = true;
+export function applyReferralDiscount(total) {
+    const discount = getReferralDiscount(total);
+    if (discount > 0) {
+        localStorage.setItem('discountApplied', 'true');
+        localStorage.setItem('referralUsed', 'true');
+        state.discountApplied = true;
+    }
+    return discount;
 }
 
 export function showReferralCode() {
@@ -157,7 +233,7 @@ export function shareReferral() {
 }
 
 // ============================================================
-//  إدارة السلة
+//  إدارة السلة (مع تحكم بالمخزون)
 // ============================================================
 function loadCart() {
     try {
@@ -180,10 +256,9 @@ function loadCart() {
                 }
                 return item;
             }).filter(item => item && item.name);
+            saveCart();
         }
-    } catch (e) { 
-        state.cart = []; 
-    }
+    } catch (e) { state.cart = []; }
 }
 
 function saveCart() {
@@ -252,7 +327,7 @@ export function changeQty(id, delta) {
     
     if (newQty < 1) {
         state.cart.splice(idx, 1);
-    } else if (safeDelta > 0 && newQty > stock) {
+    } else if (safeDelta > 0 && product && product.category !== 'شحن ألعاب' && newQty > stock) {
         showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
         return;
     } else {
@@ -390,7 +465,7 @@ export function updateDelivery() {
 }
 
 // ============================================================
-//  إرسال الطلب مع التحقق والاحتساب الآمن من الطرف الخادمي
+//  إرسال الطلب مع التحقق والاحتساب الآمن خادميًا (Transaction)
 // ============================================================
 export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
@@ -441,7 +516,7 @@ export function initCheckoutForm() {
             let verifiedItemsTotal = 0;
             let updates = [];
 
-            // إعادة حساب الإجمالي والتحقق المباشر من قاعدة البيانات داخل المعاملة
+            // إعادة حساب الإجمالي والتحقق المباشر من قاعدة البيانات داخل المعاملة (Transaction)
             await runTransaction(db, async (transaction) => {
                 verifiedItems = [];
                 verifiedItemsTotal = 0;
@@ -508,7 +583,8 @@ export function initCheckoutForm() {
             const orderData = {
                 phone: String(phone),
                 address: String(address),
-                items: verifiedItems,
+                items: verifiedItems.map(i => `${i.name} (${i.qty})`).join(' - '),
+                verifiedItems: verifiedItems,
                 total: finalTotal,
                 itemsTotal: verifiedItemsTotal,
                 smartDiscount: smartDiscountAmount,
@@ -516,13 +592,20 @@ export function initCheckoutForm() {
                 deliveryCost: deliveryCost,
                 deliveryType: state.deliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${state.deliveryKm} كم)`,
                 date: new Date().toLocaleString('ar-EG'),
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                userId: state.user?.phone || 'guest'
             };
 
-            await addDoc(collection(db, "orders"), orderData);
+            const docRef = await addDoc(collection(db, "orders"), orderData);
+
+            if (state.user) {
+                state.user.orders = state.user.orders || [];
+                state.user.orders.push({ id: docRef.id, ...orderData });
+                setUser(state.user);
+            }
 
             if (referralDiscount > 0) {
-                applyReferralDiscount();
+                applyReferralDiscount(verifiedItemsTotal);
             }
 
             lastOrderTime = Date.now();
@@ -682,7 +765,7 @@ export function displayProducts(items, append = false) {
 }
 
 // ============================================================
-//  التصفية والبحث
+//  التصفية والبحث والترحيل
 // ============================================================
 let searchTimeout = null;
 
@@ -704,6 +787,8 @@ export function filterByCategory(cat, element) {
 }
 
 function resetPagination() {
+    state.lastDoc = null;
+    state.hasMore = true;
     state.filteredProducts = [];
     window._displayedCount = 0;
 }
@@ -735,18 +820,28 @@ function renderPage(append = false) {
         window._displayedCount += pageItems.length;
     }
 
+    state.hasMore = window._displayedCount < state.filteredProducts.length;
     updateLoadMoreButton();
 }
 
 export function loadMoreProducts() {
-    if (window._displayedCount >= state.filteredProducts.length) return;
-    renderPage(true);
+    if (state.isLoading || !state.hasMore) return;
+    state.isLoading = true;
+    const btn = document.getElementById('loadMoreBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري التحميل...'; }
+
+    setTimeout(() => {
+        renderPage(true);
+        state.isLoading = false;
+        if (btn) { btn.disabled = false; }
+        updateLoadMoreButton();
+    }, 200);
 }
 
 function updateLoadMoreButton() {
     const btn = document.getElementById('loadMoreBtn');
     if (!btn) return;
-    if (state.filteredProducts.length > window._displayedCount) {
+    if (state.hasMore && state.filteredProducts.length > window._displayedCount) {
         btn.style.display = 'block';
         btn.disabled = false;
         btn.textContent = '📦 تحميل المزيد';
@@ -840,6 +935,69 @@ export function shareProduct(platform, productName, productPrice) {
 }
 
 // ============================================================
+//  رفع الصور مع ضغط وتحسين
+// ============================================================
+function compressImage(file, maxWidth = 300, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        if (!file || !(file instanceof File)) {
+            reject(new Error('ملف غير صالح'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = () => reject(new Error('فشل تحميل الصورة'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('فشل قراءة الملف'));
+        reader.readAsDataURL(file);
+    });
+}
+
+export async function uploadImageToImgBB(fileOrInput) {
+    let file = null;
+    if (fileOrInput instanceof File) file = fileOrInput;
+    else if (fileOrInput?.files?.[0]) file = fileOrInput.files[0];
+    else return '';
+
+    try {
+        const compressedBase64 = await compressImage(file, 300, 0.7);
+        if (!compressedBase64) return '';
+
+        const blob = await fetch(compressedBase64).then(r => r.blob());
+        const formData = new FormData();
+        formData.append('image', blob, 'product.jpg');
+
+        const myKey = "42b6820dc31a25d977adefc41f83aa70";
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data?.data?.url) return data.data.url;
+        }
+    } catch (e) {
+        console.warn("ImgBB فشل، نستخدم Base64", e);
+    }
+    return await compressImage(file, 300, 0.7);
+}
+
+// ============================================================
 //  مراقبة قاعدة البيانات Firebase
 // ============================================================
 export function initProductsListener() {
@@ -872,6 +1030,7 @@ export function initProductsListener() {
                 تعذر تحميل المنتجات. <button onclick="window.initProductsListener()">إعادة المحاولة</button>
             </p>
         `;
+        showToast('فشل الاتصال بالخادم', 'error');
     });
 }
 
@@ -920,6 +1079,7 @@ export function initMainPage() {
             btn.addEventListener('click', toggleDarkMode);
         });
 
+        state.user = getUser();
         state.favorites = getFavorites();
         loadCart();
 
@@ -927,6 +1087,7 @@ export function initMainPage() {
         initCheckoutForm();
         handleReferral();
         showReferralCode();
+        updateUserUI();
         updateCartBadge();
 
         window.toggleFavorite = toggleFavorite;
@@ -936,6 +1097,7 @@ export function initMainPage() {
         window.toggleCartModal = toggleCartModal;
         window.filterByCategory = filterByCategory;
         window.filterBySearch = filterBySearch;
+        window.uploadImageToImgBB = uploadImageToImgBB;
         window.updateDelivery = updateDelivery;
         window.toggleInfoModal = toggleInfoModal;
         window.shareProduct = shareProduct;
@@ -943,6 +1105,8 @@ export function initMainPage() {
         window.shareReferral = shareReferral;
         window.getMyReferralCode = getMyReferralCode;
         window.loadMoreProducts = loadMoreProducts;
+        window.logoutUser = logoutUser;
+        window.showLoginModal = showLoginModal;
         window.initProductsListener = initProductsListener;
 
         const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -961,3 +1125,28 @@ if (document.readyState === 'loading') {
 } else {
     initMainPage();
 }
+
+// ============================================================
+//  تصدير العناصر الأساسية
+// ============================================================
+export {
+    db,
+    collection,
+    addDoc,
+    onSnapshot,
+    doc,
+    deleteDoc,
+    query,
+    orderBy,
+    serverTimestamp,
+    getDocs,
+    writeBatch,
+    limit,
+    startAfter,
+    getCountFromServer,
+    where,
+    updateDoc,
+    arrayUnion,
+    arrayRemove,
+    runTransaction
+};

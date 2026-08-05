@@ -257,6 +257,7 @@
 
         <h1><i class="fa-solid fa-user-gear"></i> لوحة إدارة المتجر</h1>
 
+        <!-- قسم الإحصائيات -->
         <div class="card">
             <h2>📊 الإحصائيات</h2>
             <div class="stats-grid" id="statsGrid">
@@ -269,6 +270,29 @@
             </div>
         </div>
 
+        <!-- تم نقل قسم الطلبات الواردة إلى هنا ليظهر في الأعلى -->
+        <div class="card">
+            <h2>📦 الطلبات الواردة</h2>
+            <div class="filter-bar">
+                <input type="text" id="adminSearchOrders" placeholder="🔍 بحث في الطلبات...">
+                <select id="adminFilterOrderStatus">
+                    <option value="all">جميع الحالات</option>
+                    <option value="جديد">جديد</option>
+                    <option value="قيد المعالجة">قيد المعالجة</option>
+                    <option value="تم التوصيل">تم التوصيل</option>
+                    <option value="ملغي">ملغي</option>
+                </select>
+                <button class="btn btn-success btn-small" onclick="window.exportOrdersCSV()">📥 تصدير CSV</button>
+            </div>
+            <div id="ordersContainer"><p>جاري تحميل الطلبات...</p></div>
+            <div class="pagination">
+                <button class="btn btn-small" id="adminOrdersPrev">السابق</button>
+                <span id="adminOrdersPageInfo">صفحة 1</span>
+                <button class="btn btn-small" id="adminOrdersNext">التالي</button>
+            </div>
+        </div>
+
+        <!-- قسم إضافة منتج جديد -->
         <div class="card">
             <h2>➕ إضافة منتج جديد</h2>
             <form id="addProductForm">
@@ -306,6 +330,7 @@
             </form>
         </div>
 
+        <!-- قسم إدارة المنتجات -->
         <div class="card">
             <h2>📋 إدارة المنتجات</h2>
             <div class="filter-bar">
@@ -353,27 +378,6 @@
                 <button class="btn btn-small" id="adminProductsPrev">السابق</button>
                 <span id="adminProductsPageInfo">صفحة 1</span>
                 <button class="btn btn-small" id="adminProductsNext">التالي</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>📦 الطلبات الواردة</h2>
-            <div class="filter-bar">
-                <input type="text" id="adminSearchOrders" placeholder="🔍 بحث في الطلبات...">
-                <select id="adminFilterOrderStatus">
-                    <option value="all">جميع الحالات</option>
-                    <option value="جديد">جديد</option>
-                    <option value="قيد المعالجة">قيد المعالجة</option>
-                    <option value="تم التوصيل">تم التوصيل</option>
-                    <option value="ملغي">ملغي</option>
-                </select>
-                <button class="btn btn-success btn-small" onclick="window.exportOrdersCSV()">📥 تصدير CSV</button>
-            </div>
-            <div id="ordersContainer"><p>جاري تحميل الطلبات...</p></div>
-            <div class="pagination">
-                <button class="btn btn-small" id="adminOrdersPrev">السابق</button>
-                <span id="adminOrdersPageInfo">صفحة 1</span>
-                <button class="btn btn-small" id="adminOrdersNext">التالي</button>
             </div>
         </div>
 

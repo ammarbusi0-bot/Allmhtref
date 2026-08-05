@@ -101,6 +101,20 @@ export function showToast(message, type = 'info', duration = 3500) {
 }
 
 // ============================================================
+//  إغلاق شاشة الترحيب بأمان
+// ============================================================
+export function closeWelcomeOverlay() {
+    const welcomeOverlay = document.getElementById('welcomeOverlay');
+    if (welcomeOverlay) {
+        welcomeOverlay.style.opacity = '0';
+        welcomeOverlay.style.pointerEvents = 'none';
+        setTimeout(() => {
+            welcomeOverlay.style.display = 'none';
+        }, 300);
+    }
+}
+
+// ============================================================
 //  نظام المستخدمين
 // ============================================================
 export function getUser() {
@@ -1052,16 +1066,23 @@ export function initMainPage() {
         const toggleMusicBtn = document.getElementById('toggleMusicBtn');
         const musicIcon = document.getElementById('musicIcon');
 
-        if (enterBtn && welcomeOverlay) {
-            enterBtn.addEventListener('click', () => {
+        // التعامل المباشر والسريع مع زر دخول المتجر لإزالة التغطية
+        if (enterBtn) {
+            enterBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                closeWelcomeOverlay();
                 if (bgMusic) {
                     bgMusic.play()
                         .then(() => { if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high'; })
                         .catch(() => {});
                 }
-                welcomeOverlay.style.display = 'none';
             });
         }
+
+        // إغلاق الشاشة تلقائياً بعد ثانيتين لضمان ظهور الصفحة حتى لو تعطل الزر
+        setTimeout(() => {
+            closeWelcomeOverlay();
+        }, 2000);
 
         if (toggleMusicBtn && bgMusic && musicIcon) {
             toggleMusicBtn.addEventListener('click', () => {
@@ -1108,6 +1129,7 @@ export function initMainPage() {
         window.logoutUser = logoutUser;
         window.showLoginModal = showLoginModal;
         window.initProductsListener = initProductsListener;
+        window.closeWelcomeOverlay = closeWelcomeOverlay;
 
         const loadMoreBtn = document.getElementById('loadMoreBtn');
         if (loadMoreBtn) {
@@ -1117,6 +1139,7 @@ export function initMainPage() {
         applyFilters();
     } catch (e) {
         console.error("خطأ أثناء التهيئة الرئيسية:", e);
+        closeWelcomeOverlay(); // إزالة الطبقة في حالة حدوث أي خطأ أخير
     }
 }
 

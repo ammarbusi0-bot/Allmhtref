@@ -184,8 +184,7 @@ export function getReferralDiscount(total) {
     if (total < 100) return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     if (localStorage.getItem('discountApplied') === 'true') return 0;
-    // تعديل: خصم 10% من الإجمالي بدون حد أقصى
-    return total * 0.10;
+    return Math.min(total * 0.10, 50);
 }
 
 export function applyReferralDiscount(total) {
@@ -212,7 +211,7 @@ export function showReferralCode() {
                 <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
             </div>
         </div>
-        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% على أول طلب فوق 100 ل.س</p>
+        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم يصل إلى 50 ل.س لأول طلب فوق 100 ل.س</p>
     `;
 }
 
@@ -413,7 +412,7 @@ export function renderCartItems() {
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
             ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة (10%):</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة:</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
             <div class="summary-line"><span>🚚 التوصيل (${state.deliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + state.deliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} Lt</span></div>
         `;
@@ -660,30 +659,15 @@ function resetPagination() {
     window._displayedCount = 0;
 }
 
-// دالة مساعدة للتحقق من أننا في صفحة الإدارة (لعدم تصفية المنتجات غير المتوفرة)
-function isAdminPage() {
-    return !!document.getElementById('adminMainContent');
-}
-
 export function applyFilters() {
     let filtered = state.products;
-
-    // تصفية حسب القسم
     if (state.currentCategory !== 'all') {
         filtered = filtered.filter(p => p.category === state.currentCategory);
     }
-
-    // تصفية حسب البحث
     if (state.searchQuery) {
         const q = state.searchQuery.toLowerCase();
         filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(q));
     }
-
-    // 🔥 إضافة تصفية "متوفر" (تظهر المنتجات المتوفرة فقط للزوار، وفي الإدارة تظهر الكل)
-    if (!isAdminPage()) {
-        filtered = filtered.filter(p => p.available !== false); // إذا لم يوجد الحقل نعتبره متوفر (true)
-    }
-
     state.filteredProducts = filtered;
     renderPage(false);
 }

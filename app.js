@@ -102,14 +102,13 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية لحساب المخزون الفعلي (لحل مشاكل لوحة التحكم)
 export function getStock(product) {
     if (!product) return 0;
     if (product.category === 'شحن ألعاب') return Infinity; 
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
     if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
-    return 99; // المخزون الافتراضي
+    return 0;
 }
 
 export function closeWelcomeOverlay() {
@@ -137,12 +136,14 @@ export function setUser(userData) {
     localStorage.setItem('alukhowah_user', JSON.stringify(userData));
     state.user = userData;
     updateUserUI();
+    showReferralCode(); // تحديث واجهة كود الخصم تلقائياً عند تسجيل الدخول
 }
 
 export function logoutUser() {
     localStorage.removeItem('alukhowah_user');
     state.user = null;
     updateUserUI();
+    showReferralCode(); // تحديث واجهة كود الخصم تلقائياً عند تسجيل الخروج
     showToast('تم تسجيل الخروج', 'info');
 }
 
@@ -155,7 +156,7 @@ export function updateUserUI() {
             <button onclick="window.logoutUser()" class="btn-secondary">خروج</button>
         `;
     } else {
-        userInfo.innerHTML = `<button onclick="window.showLoginModal()" class="btn-primary">تسجيل الدخول</button>`;
+        userInfo.innerHTML = '';
     }
 }
 
@@ -172,7 +173,7 @@ export function showLoginModal() {
 }
 
 // ============================================================
-//  نظام الدعوة والخصم
+//  نظام الدعوة والخصم (النسخة الآمنة والمقيدة برقم الهاتف)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -203,16 +204,24 @@ export function handleReferral() {
 
 export function getReferralDiscount(total) {
     if (total < 100) return 0;
+    const user = getUser();
+    if (!user || !user.phone) return 0; // الحماية: لا يُمنح الخصم إلا إذا كان المستخدم قد أدخل رقم هاتفه
+    
+    const phoneKey = `discountApplied_${user.phone}`;
+    if (localStorage.getItem(phoneKey) === 'true') return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
-    if (localStorage.getItem('discountApplied') === 'true') return 0;
+    
     return Math.round(total * 0.10);
 }
 
 export function applyReferralDiscount(total) {
     const discount = getReferralDiscount(total);
     if (discount > 0) {
-        localStorage.setItem('discountApplied', 'true');
-        localStorage.setItem('referralUsed', 'true');
+        const user = getUser();
+        if (user && user.phone) {
+            localStorage.setItem(`discountApplied_${user.phone}`, 'true');
+            localStorage.setItem('referralUsed', 'true');
+        }
         state.discountApplied = true;
     }
     return discount;
@@ -221,11 +230,27 @@ export function applyReferralDiscount(total) {
 export function showReferralCode() {
     const container = document.getElementById('referralContainer');
     if (!container) return;
+
+    const user = getUser();
+    // التحقق من وجود رقم الهاتف: إذا لم يتوفر، يتم إخفاء الكود وعرض رسالة توضيحية لطلب إدخال الهاتف
+    if (!user || !user.phone) {
+        container.innerHTML = `
+            <div style="background:var(--input-bg, #f8f9fa);padding:15px;border-radius:8px;text-align:center;border:1px dashed var(--primary, #28a745);">
+                <p style="font-size:14px;color:#d9534f;font-weight:bold;margin-bottom:8px;">🔒 خصم الدعوة محمي برقم الهاتف</p>
+                <p style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.5;">
+                    لتفعيل كود الخصم (10%) وحماية حقوقك ومنع التلاعب، يرجى إدخال رقم هاتف صحيح أولاً. هذا الإجراء يضمن حصولك على الخصم ومنع تكراره بشكل وهمي.
+                </p>
+                <button onclick="window.showLoginModal()" class="btn-primary" style="padding:8px 16px;font-size:14px;">📱 إدخال رقم الهاتف الآن</button>
+            </div>
+        `;
+        return;
+    }
+
     const code = getMyReferralCode();
     container.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <div>
-                <span style="font-weight:bold;">🎁 كود الخصم: </span>
+                <span style="font-weight:bold;">🎁 كود الخصم الخاص بك: </span>
                 <strong style="font-size:20px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg, #eee);padding:4px 12px;border-radius:6px;">${escapeHTML(code)}</strong>
             </div>
             <div style="display:flex;gap:8px;">
@@ -260,10 +285,10 @@ function loadCart() {
             const rawCart = JSON.parse(saved);
             state.cart = rawCart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
-                if (!product) return null; // إزالة المنتج إذا تم حذفه من قاعدة البيانات
+                if (!product) return null;
 
                 const stock = getStock(product);
-                if (stock <= 0) return null; // إزالة المنتج إذا نفذ من المخزون تماماً
+                if (stock <= 0) return null;
 
                 const discount = product.discount ? Number(product.discount) : 0;
                 const basePrice = Number(product.price) || 0;
@@ -271,11 +296,11 @@ function loadCart() {
                 
                 let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
                 if (safeQty > stock) {
-                    safeQty = stock; // تقييد الكمية لتناسب المخزون الحالي
+                    safeQty = stock;
                 }
                 
                 return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
-            }).filter(Boolean); // فلترة وإزالة المنتجات الفارغة
+            }).filter(Boolean);
             saveCart();
         }
     } catch (e) { state.cart = []; }
@@ -541,7 +566,6 @@ export function initCheckoutForm() {
         submitBtn.disabled = true;
 
         try {
-            // المعاملة محصنة من الإعادة العشوائية (Retries)
             const { verifiedItems, verifiedItemsTotal } = await runTransaction(db, async (transaction) => {
                 let tVerifiedItems = [];
                 let tVerifiedItemsTotal = 0;
@@ -581,7 +605,6 @@ export function initCheckoutForm() {
                     }
                 }
 
-                // تنفيذ تحديث المخزون
                 for (const u of tUpdates) {
                     transaction.update(u.ref, { stock: u.newStock });
                 }
@@ -621,17 +644,18 @@ export function initCheckoutForm() {
                 deliveryType: state.deliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${state.deliveryKm} كم)`,
                 date: new Date().toLocaleString('ar-EG'),
                 createdAt: serverTimestamp(),
-                userId: state.user?.phone || 'guest'
+                userId: state.user?.phone || phone
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
             if (state.user) {
-                // إصلاح مشكلة Timestamp في LocalStorage
                 const localOrderData = { ...orderData, createdAt: new Date().toISOString() };
                 state.user.orders = state.user.orders || [];
                 state.user.orders.push({ id: docRef.id, ...localOrderData });
                 setUser(state.user);
+            } else {
+                setUser({ phone, name: 'مستخدم جديد', address, orders: [{ id: docRef.id, ...orderData, createdAt: new Date().toISOString() }] });
             }
 
             if (referralDiscount > 0) {
@@ -657,7 +681,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
+//  عرض المنتجات
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -716,6 +740,7 @@ export function displayProducts(items, append = false) {
             img.src = imgUrl;
             img.alt = escapeHTML(p.name);
             img.loading = 'lazy';
+            img.decoding = 'async';
             img.onerror = () => {
                 img.style.display = 'none';
                 if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
@@ -1046,7 +1071,7 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
+        loadCart();
         
         resetPagination();
         applyFilters();

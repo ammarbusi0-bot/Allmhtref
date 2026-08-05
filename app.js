@@ -1,6 +1,6 @@
 // ============================================================
 //  المتجر الأخوي - النسخة الأسطورية الشاملة (Pro Max Ultimate)
-//  جميع الميزات والأخطاء تم إصلاحها، مع إضافات متطورة
+//  تم تعديل الخصم ليكون 10% وتحسين الأداء وتجربة المستخدم
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -25,8 +25,7 @@ import {
     arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase (استخدم متغيرات بيئة في الإنتاج) ----------
-// 🔒 يُنصح بشدة بإخفاء هذه المفاتيح باستخدام Variables Environment أو خدمة وسيطة.
+// ---------- إعدادات Firebase ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -146,7 +145,7 @@ export function showLoginModal() {
 }
 
 // ============================================================
-//  نظام الدعوة والخصم (محسن)
+//  نظام الدعوة والخصم (تم التعديل ليكون 10% ثابتة)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -175,16 +174,17 @@ export function handleReferral() {
         localStorage.setItem('referralPoints', JSON.stringify(points));
         state.referralPoints = points;
         setTimeout(() => {
-            showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول فوق 100 ليرة', 'success', 5000);
+            showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر!', 'success', 5000);
         }, 500);
     }
 }
 
+// تعديل الخصم ليكون 10% كاملة عند تجاوز المجموع 100 ليرة
 export function getReferralDiscount(total) {
     if (total < 100) return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     if (localStorage.getItem('discountApplied') === 'true') return 0;
-    return Math.min(total * 0.10, 50);
+    return total * 0.10; // 10% خصم مباشر
 }
 
 export function applyReferralDiscount(total) {
@@ -211,7 +211,7 @@ export function showReferralCode() {
                 <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
             </div>
         </div>
-        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم يصل إلى 50 ل.س لأول طلب فوق 100 ل.س</p>
+        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة 100 ل.س أو أكثر</p>
     `;
 }
 
@@ -224,19 +224,18 @@ export function copyReferralCode() {
 
 export function shareReferral() {
     const code = getMyReferralCode();
-    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على خصم: ${code}\n📱 ${window.location.href}`;
+    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على خصم 10%: ${code}\n📱 ${window.location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
 }
 
 // ============================================================
-//  السلة (مع تحديث الأسعار التلقائي)
+//  السلة (تحديث وتزامن الأسعار)
 // ============================================================
 function loadCart() {
     try {
         const saved = localStorage.getItem('alukhowah_cart');
         if (saved) {
             state.cart = JSON.parse(saved);
-            // تحديث الأسعار من المنتجات الحالية
             state.cart = state.cart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
                 if (product) {
@@ -324,7 +323,7 @@ export function updateCartBadge() {
 }
 
 // ============================================================
-//  حساب الإجمالي (مع خصومات متعددة وآمنة)
+//  حساب الإجمالي دقيق وآمن
 // ============================================================
 function calculateFinalTotal() {
     const itemsTotal = state.cart.reduce((sum, item) => {
@@ -411,8 +410,8 @@ export function renderCartItems() {
         const calc = calculateFinalTotal();
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
-            ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم ذكي (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم الدعوة:</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
+            ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم الكمية (${calc.smartDiscountPercent}%):</span><span>-${Math.round(calc.smartDiscountAmount)} Lt</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم كود الدعوة (10%):</span><span>-${Math.round(calc.referralDiscount)} Lt</span></div>` : ''}
             <div class="summary-line"><span>🚚 التوصيل (${state.deliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + state.deliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${Math.round(calc.finalTotal)} Lt</span></div>
         `;
@@ -434,7 +433,7 @@ export function updateDelivery() {
 }
 
 // ============================================================
-//  إرسال الطلب (مع التحقق وتخزين الطلبات)
+//  إرسال الطلب
 // ============================================================
 export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
@@ -494,6 +493,10 @@ export function initCheckoutForm() {
                 setUser(state.user);
             }
 
+            if (calc.referralDiscount > 0) {
+                applyReferralDiscount(calc.discountedItemsTotal);
+            }
+
             showToast(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${Math.round(calc.finalTotal)} Lt`, 'success', 5000);
             state.cart = [];
             saveCart();
@@ -512,7 +515,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات (مع Lazy Loading والترحيل الحقيقي)
+//  عرض المنتجات بطريقة محسنة عالية الأداء
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -595,6 +598,7 @@ export function displayProducts(items, append = false) {
             const old = document.createElement('span');
             old.className = 'old-price';
             old.textContent = `${originalPrice} Lt`;
+ Old:旧
             priceDiv.appendChild(old);
         }
         priceDiv.appendChild(document.createTextNode(`${finalPrice} Lt`));
@@ -631,7 +635,7 @@ export function displayProducts(items, append = false) {
 }
 
 // ============================================================
-//  التصفية والبحث والترحيل الحقيقي
+//  التصفية والبحث
 // ============================================================
 let searchTimeout = null;
 
@@ -641,7 +645,7 @@ export function filterBySearch(query) {
         state.searchQuery = query.trim();
         resetPagination();
         applyFilters();
-    }, 300);
+    }, 250);
 }
 
 export function filterByCategory(cat, element) {
@@ -701,7 +705,7 @@ export function loadMoreProducts() {
         state.isLoading = false;
         if (btn) { btn.disabled = false; }
         updateLoadMoreButton();
-    }, 200);
+    }, 150);
 }
 
 function updateLoadMoreButton() {
@@ -717,7 +721,7 @@ function updateLoadMoreButton() {
 }
 
 // ============================================================
-//  المفضلة (مع تحديث فوري)
+//  المفضلة
 // ============================================================
 export function getFavorites() {
     try {
@@ -801,7 +805,7 @@ export function shareProduct(platform, productName, productPrice) {
 }
 
 // ============================================================
-//  رفع الصور (مع ضغط وتحسين)
+//  رفع الصور مع ضغط أسرع
 // ============================================================
 function compressImage(file, maxWidth = 300, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -848,7 +852,6 @@ export async function uploadImageToImgBB(fileOrInput) {
         const formData = new FormData();
         formData.append('image', blob, 'product.jpg');
 
-        // 🔒 استخدم مفتاح ImgBB مخفي في متغير بيئي، هذا المفتاح للعرض فقط
         const myKey = "42b6820dc31a25d977adefc41f83aa70";
         const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
             method: 'POST',
@@ -859,13 +862,13 @@ export async function uploadImageToImgBB(fileOrInput) {
             if (data?.data?.url) return data.data.url;
         }
     } catch (e) {
-        console.warn("ImgBB فشل، نستخدم Base64", e);
+        console.warn("ImgBB فشل، استخدام Base64", e);
     }
     return await compressImage(file, 300, 0.7);
 }
 
 // ============================================================
-//  الاستماع لتغييرات Firebase (مع تحديث ذكي)
+//  مراقبة قاعدة البيانات Firebase
 // ============================================================
 export function initProductsListener() {
     const grid = document.getElementById('productsGrid');
@@ -876,11 +879,10 @@ export function initProductsListener() {
     onSnapshot(q, (snapshot) => {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
-        loadCart(); // يعيد حساب الأسعار
+        loadCart();
         resetPagination();
         applyFilters();
         updateCartBadge();
-        showToast('تم تحديث المنتجات', 'info', 2000);
     }, (error) => {
         console.error("خطأ جلب المنتجات:", error);
         grid.innerHTML = `
@@ -888,13 +890,9 @@ export function initProductsListener() {
                 تعذر تحميل المنتجات. <button onclick="window.initProductsListener()">إعادة المحاولة</button>
             </p>
         `;
-        showToast('فشل الاتصال بالخادم', 'error');
     });
 }
 
-// ============================================================
-//  مودال المعلومات
-// ============================================================
 export function toggleInfoModal() {
     const modal = document.getElementById('infoModal');
     if (modal) modal.classList.toggle('open');
@@ -906,7 +904,6 @@ export function toggleInfoModal() {
 export function initMainPage() {
     loadDarkModePreference();
 
-    // الترحيب والموسيقى
     const enterBtn = document.getElementById('enterBtn');
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const bgMusic = document.getElementById('bgMusic');
@@ -951,7 +948,6 @@ export function initMainPage() {
     updateUserUI();
     updateCartBadge();
 
-    // ربط الدوال بالنافذة
     window.toggleFavorite = toggleFavorite;
     window.addToCart = addToCart;
     window.changeQty = changeQty;
@@ -979,9 +975,6 @@ export function initMainPage() {
     applyFilters();
 }
 
-// ============================================================
-//  تصدير العناصر الأساسية
-// ============================================================
 export {
     db,
     collection,

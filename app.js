@@ -25,7 +25,7 @@ import {
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase (بدون تغييرات أمنية كما طلبت) ----------
+// ---------- إعدادات Firebase ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -102,14 +102,13 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// تم ضبط القيمة الافتراضية للمخزون إلى 99 لمنع ظهور المنتجات كـ غير متوفرة
 export function getStock(product) {
     if (!product) return 0;
     if (product.category === 'شحن ألعاب') return Infinity; 
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
     if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
-    return 99; 
+    return 99; // قيمة افتراضية لضمان عدم ظهور المنتجات كغير متوفرة إن لم يُحدد المخزون
 }
 
 export function closeWelcomeOverlay() {
@@ -169,12 +168,21 @@ export function showLoginModal() {
     }
     const name = prompt('أدخل اسمك:') || 'مستخدم';
     const address = prompt('أدخل عنوانك:') || '';
-    setUser({ phone, name, address, orders: [] });
+    
+    const existingUser = getUser();
+    const userData = { 
+        phone, 
+        name, 
+        address, 
+        orders: existingUser?.orders || [],
+        discountStatus: existingUser?.discountStatus || 'none' 
+    };
+    setUser(userData);
     showToast(`مرحباً ${name}`, 'success');
 }
 
 // ============================================================
-//  نظام الدعوة والخصم (آمن ومقيد برقم الهاتف وموافق عليه)
+//  نظام الدعوة والخصم (يتطلب موافقة الإدارة الصريحة)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -186,20 +194,27 @@ export function getMyReferralCode() {
     return code;
 }
 
-export function getInviteLink() {
-    return `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
-}
-
-export function handleReferral() {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    const myCode = getMyReferralCode();
-    if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
-        localStorage.setItem('invitedBy', ref);
-        state.invitedBy = ref;
-        setTimeout(() => {
-            showToast('🎉 تم تفعيل كود الدعوة في انتظار الموافقة والتحقق!', 'success', 5000);
-        }, 500);
+export async function requestDiscountApproval() {
+    const user = getUser();
+    if (!user || !user.phone) {
+        showToast('الرجاء إدخال رقم الهاتف أولاً', 'error');
+        showLoginModal();
+        return;
+    }
+    try {
+        // إرسال طلب تفعيل الخصم إلى قاعدة البيانات ليقوم الأدمن بالموافقة عليه
+        await addDoc(collection(db, "discountRequests"), {
+            phone: user.phone,
+            name: user.name || 'مستخدم',
+            status: 'pending',
+            createdAt: serverTimestamp()
+        });
+        user.discountStatus = 'pending';
+        setUser(user);
+        showToast('✅ تم إرسال طلب تفعيل الخصم للإدارة', 'success', 4000);
+        showReferralCode();
+    } catch (e) {
+        showToast('فشل إرسال الطلب، حاول مرة أخرى', 'error');
     }
 }
 
@@ -208,11 +223,12 @@ export function getReferralDiscount(total) {
     const user = getUser();
     if (!user || !user.phone) return 0;
     
+    // شرط أساسي: لا يطبق الخصم إلا إذا وافقت الإدارة وأصبح status معتمد ('approved')
+    if (user.discountStatus !== 'approved') return 0;
+    
     const phoneKey = `discountApplied_${user.phone}`;
     if (localStorage.getItem(phoneKey) === 'true') return 0;
-    if (!localStorage.getItem('invitedBy')) return 0;
     
-    // الخصم يخضع لشرط التحقق والموافقة
     return Math.round(total * 0.10);
 }
 
@@ -222,7 +238,6 @@ export function applyReferralDiscount(total) {
         const user = getUser();
         if (user && user.phone) {
             localStorage.setItem(`discountApplied_${user.phone}`, 'true');
-            localStorage.setItem('referralUsed', 'true');
         }
         state.discountApplied = true;
     }
@@ -234,31 +249,53 @@ export function showReferralCode() {
     if (!container) return;
 
     const user = getUser();
-    // رسالة شرح مختصرة لإدخال رقم الهاتف وحماية الخصم
     if (!user || !user.phone) {
         container.innerHTML = `
             <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed var(--primary, #28a745);">
-                <p style="font-size:12px;color:#d9534f;font-weight:bold;margin-bottom:6px;">🔒 أدخل رقم هاتفك لتفعيل خصم الدعوة</p>
-                <button onclick="window.showLoginModal()" class="btn-primary" style="padding:5px 12px;font-size:12px;">📱 أدخل رقم الهاتف</button>
+                <p style="font-size:12px;color:#d9534f;font-weight:bold;margin-bottom:6px;">🔒 أدخل هاتفك لطلب خصم الدعوة</p>
+                <button onclick="window.showLoginModal()" class="btn-primary" style="padding:5px 12px;font-size:12px;">📱 إدخال الهاتف</button>
             </div>
         `;
         return;
     }
 
-    const code = getMyReferralCode();
-    container.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-            <div>
-                <span style="font-weight:bold;">🎁 كود الخصم: </span>
-                <strong style="font-size:18px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg, #eee);padding:4px 10px;border-radius:6px;">${escapeHTML(code)}</strong>
+    const status = user.discountStatus || 'none';
+
+    if (status === 'none') {
+        container.innerHTML = `
+            <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed var(--primary, #28a745);">
+                <p style="font-size:12px;color:#333;font-weight:bold;margin-bottom:6px;">🎁 خصم 10% على طلبك الأول</p>
+                <button onclick="window.requestDiscountApproval()" class="btn-primary" style="padding:5px 12px;font-size:12px;">📩 إرسال طلب موافقة للإدارة</button>
             </div>
-            <div style="display:flex;gap:8px;">
-                <button onclick="window.copyReferralCode()" class="btn-secondary">📋 نسخ</button>
-                <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
+        `;
+    } else if (status === 'pending') {
+        container.innerHTML = `
+            <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed #f0ad4e;">
+                <p style="font-size:12px;color:#f0ad4e;font-weight:bold;margin:4px;">⏳ طلب الخصم قيد موافقة الإدارة</p>
             </div>
-        </div>
-        <p style="font-size:11px;color:#888;margin-top:4px;">شارك الكود واحصل على خصم 10% (يخضع للموافقة)</p>
-    `;
+        `;
+    } else if (status === 'approved') {
+        const code = getMyReferralCode();
+        container.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                <div>
+                    <span style="font-weight:bold;">🎁 كود الخصم (معتمد): </span>
+                    <strong style="font-size:18px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg, #eee);padding:4px 10px;border-radius:6px;">${escapeHTML(code)}</strong>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="window.copyReferralCode()" class="btn-secondary">📋 نسخ</button>
+                    <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
+                </div>
+            </div>
+            <p style="font-size:11px;color:green;margin-top:4px;">✅ تم اعتماد الخصم من الإدارة</p>
+        `;
+    } else if (status === 'rejected') {
+        container.innerHTML = `
+            <div style="background:var(--input-bg, #f8f9fa);padding:10px;border-radius:8px;text-align:center;border:1px dashed #d9534f;">
+                <p style="font-size:12px;color:#d9534f;font-weight:bold;margin:4px;">❌ تم رفض طلب الخصم من الإدارة</p>
+            </div>
+        `;
+    }
 }
 
 export function copyReferralCode() {
@@ -270,7 +307,7 @@ export function copyReferralCode() {
 
 export function shareReferral() {
     const code = getMyReferralCode();
-    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على خصم 10%: ${code}\n📱 ${window.location.href}`;
+    const message = `🎁 استخدم كود الخصم في متجر ماركت الأخوة: ${code}\n📱 ${window.location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
 }
 
@@ -1143,7 +1180,6 @@ export function initMainPage() {
         
         initProductsListener();
         initCheckoutForm();
-        handleReferral();
         showReferralCode();
         updateUserUI();
 
@@ -1161,6 +1197,7 @@ export function initMainPage() {
         window.copyReferralCode = copyReferralCode;
         window.shareReferral = shareReferral;
         window.getMyReferralCode = getMyReferralCode;
+        window.requestDiscountApproval = requestDiscountApproval;
         window.loadMoreProducts = loadMoreProducts;
         window.logoutUser = logoutUser;
         window.showLoginModal = showLoginModal;

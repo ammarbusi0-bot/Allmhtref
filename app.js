@@ -123,6 +123,8 @@
 
         .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
         .badge-discount { background: var(--danger); }
+        .badge-available { background: var(--success); }
+        .badge-unavailable { background: var(--danger); }
         .badge-status-new { background: var(--warning); }
         .badge-status-processing { background: var(--info); }
         .badge-status-delivered { background: var(--success); }
@@ -270,7 +272,7 @@
             </div>
         </div>
 
-        <!-- قسم الطلبات الواردة -->
+        <!-- قسم الطلبات الواردة في الأعلى -->
         <div class="card">
             <h2>📦 الطلبات الواردة</h2>
             <div class="filter-bar">
@@ -322,6 +324,7 @@
                     <label>نسبة الخصم % (اختياري - 0-99):</label>
                     <input type="number" id="pDiscount" placeholder="0" min="0" max="99" value="0">
                 </div>
+                <!-- حقل حالة المنتج (جديد) -->
                 <div class="form-group">
                     <label>حالة المنتج:</label>
                     <select id="pInStock">
@@ -329,6 +332,7 @@
                         <option value="false">غير متوفر (نافد)</option>
                     </select>
                 </div>
+                <!-- زر إدارة الأقسام -->
                 <div class="form-group">
                     <label>إدارة الأقسام:</label>
                     <button type="button" class="btn btn-info btn-small" id="manageCategoriesBtn">📂 إدارة الأقسام</button>
@@ -395,7 +399,7 @@
 
     </div>
 
-    <!-- نافذة التعديل -->
+    <!-- نافذة التعديل Moadl -->
     <div class="modal-overlay" id="editModal">
         <div class="modal-box">
             <button class="close-btn" onclick="window.closeEditModal()">✖</button>
@@ -427,6 +431,7 @@
                 <label>الخصم %:</label>
                 <input type="number" id="editDiscount" min="0" max="99">
             </div>
+            <!-- حقل تعديل حالة التوفر -->
             <div class="form-group">
                 <label>حالة المنتج:</label>
                 <select id="editInStock">
@@ -449,6 +454,9 @@
             uploadImageToImgBB, toggleDarkMode, loadDarkModePreference
         } from './app.js';
 
+        // ====================================================
+        //  الحالة العامة للوحة
+        // ====================================================
         const adminState = {
             products: [],
             orders: [],
@@ -466,6 +474,9 @@
             selectedOrders: []
         };
 
+        // ====================================================
+        //  توست مخصص
+        // ====================================================
         function showToast(message, type = 'info', duration = 3000) {
             const toast = document.getElementById('customToast');
             const toastMsg = document.getElementById('toastMessage');
@@ -477,6 +488,9 @@
             toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
         }
 
+        // ====================================================
+        //  التحميل الأساسي
+        // ====================================================
         loadDarkModePreference();
         document.getElementById('adminDarkToggle')?.addEventListener('click', toggleDarkMode);
 
@@ -495,6 +509,9 @@
             if (e.key === 'Enter') checkAdminPassword();
         });
 
+        // ====================================================
+        //  دالة التبديل السريع لحالة المنتج (متوفر / غير متوفر)
+        // ====================================================
         window.toggleStockStatus = async function(id, currentStatus) {
             try {
                 await updateDoc(doc(db, "products", id), { inStock: !currentStatus });
@@ -504,6 +521,9 @@
             }
         };
 
+        // ====================================================
+        //  دالة حذف المنتج
+        // ====================================================
         window.deleteProduct = async function(id) {
             if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
             try {
@@ -514,6 +534,9 @@
             }
         };
 
+        // ====================================================
+        //  دالة حذف الطلب
+        // ====================================================
         window.deleteOrder = async function(id) {
             if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
             try {
@@ -524,6 +547,9 @@
             }
         };
 
+        // ====================================================
+        //  دالة تحديث حالة الطلب
+        // ====================================================
         window.updateOrderStatus = async function(id, status) {
             try {
                 await updateDoc(doc(db, "orders", id), { status: status });
@@ -533,6 +559,9 @@
             }
         };
 
+        // ====================================================
+        //  دالة فتح نافذة التعديل
+        // ====================================================
         window.editProduct = function(id) {
             const product = adminState.products.find(p => p.id === id);
             if (!product) { showToast('المنتج غير موجود', 'error'); return; }
@@ -549,6 +578,9 @@
             document.getElementById('editModal').style.display = 'none';
         };
 
+        // ====================================================
+        //  دالة حفظ التعديل
+        // ====================================================
         window.saveEdit = async function() {
             const id = document.getElementById('editProductId').value;
             const name = document.getElementById('editName').value.trim();
@@ -570,6 +602,9 @@
             }
         };
 
+        // ====================================================
+        //  تصدير المنتجات CSV
+        // ====================================================
         window.exportProductsCSV = function() {
             const products = adminState.filteredProducts.length ? adminState.filteredProducts : adminState.products;
             if (!products.length) { showToast('لا توجد منتجات', 'error'); return; }
@@ -585,6 +620,9 @@
             showToast('✅ تم التصدير', 'success');
         };
 
+        // ====================================================
+        //  تصدير الطلبات CSV
+        // ====================================================
         window.exportOrdersCSV = function() {
             const orders = adminState.filteredOrders.length ? adminState.filteredOrders : adminState.orders;
             if (!orders.length) { showToast('لا توجد طلبات', 'error'); return; }
@@ -602,21 +640,27 @@
             showToast('✅ تم التصدير', 'success');
         };
 
+        // ====================================================
+        //  عرض المنتجات في الجدول
+        // ====================================================
         function renderProductsTable() {
             const tbody = document.getElementById('adminProductsTable');
             if (!tbody) return;
 
             let filtered = [...adminState.products];
 
+            // بحث
             if (adminState.searchProducts) {
                 const q = adminState.searchProducts.toLowerCase();
                 filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(q));
             }
 
+            // فلتر القسم
             if (adminState.filterCategory !== 'all') {
                 filtered = filtered.filter(p => p.category === adminState.filterCategory);
             }
 
+            // ترتيب
             switch (adminState.sortProducts) {
                 case 'price_asc': filtered.sort((a, b) => (a.price || 0) - (b.price || 0)); break;
                 case 'price_desc': filtered.sort((a, b) => (b.price || 0) - (a.price || 0)); break;
@@ -626,6 +670,7 @@
 
             adminState.filteredProducts = filtered;
 
+            // ترحيل
             const total = filtered.length;
             const totalPages = Math.ceil(total / adminState.pageSize) || 1;
             if (adminState.productsPage > totalPages) adminState.productsPage = totalPages;
@@ -652,6 +697,7 @@
                 const discountBadge = p.discount && p.discount > 0 ?
                     `<span class="badge badge-discount">-${p.discount}%</span>` : '—';
                 
+                // حالة التوفر
                 const isAvailable = p.inStock !== false;
                 const stockBadge = isAvailable ? 
                     `<button class="btn btn-success btn-small" onclick="window.toggleStockStatus('${p.id}', true)">✅ متوفر</button>` :
@@ -675,15 +721,20 @@
                 `;
             }).join('');
 
+            // تحديث تحديد الكل
             document.getElementById('selectAllProducts').checked = false;
         }
 
+        // ====================================================
+        //  عرض الطلبات
+        // ====================================================
         function renderOrders() {
             const container = document.getElementById('ordersContainer');
             if (!container) return;
 
             let filtered = [...adminState.orders];
 
+            // بحث
             if (adminState.searchOrders) {
                 const q = adminState.searchOrders.toLowerCase();
                 filtered = filtered.filter(o =>
@@ -693,10 +744,12 @@
                 );
             }
 
+            // فلتر الحالة
             if (adminState.filterOrderStatus !== 'all') {
                 filtered = filtered.filter(o => o.status === adminState.filterOrderStatus);
             }
 
+            // ترتيب (الأحدث أولاً)
             filtered.sort((a, b) => {
                 const dateA = a.createdAt?.seconds || 0;
                 const dateB = b.createdAt?.seconds || 0;
@@ -705,6 +758,7 @@
 
             adminState.filteredOrders = filtered;
 
+            // ترحيل
             const total = filtered.length;
             const totalPages = Math.ceil(total / adminState.pageSize) || 1;
             if (adminState.ordersPage > totalPages) adminState.ordersPage = totalPages;
@@ -763,6 +817,9 @@
             }).join('');
         }
 
+        // ====================================================
+        //  تحديث الإحصائيات
+        // ====================================================
         function updateStats() {
             const orders = adminState.orders;
             const products = adminState.products;
@@ -789,6 +846,9 @@
             document.getElementById('statAvgOrder').textContent = orders.length ? Math.round(totalSales / orders.length) : 0;
         }
 
+        // ====================================================
+        //  إدارة الأقسام (إضافة / تعديل / حذف)
+        // ====================================================
         const DEFAULT_CATEGORIES = ['مؤن', 'ألبان', 'زيوت', 'مشروبات', 'بهارات', 'شبسات', 'حلويات', 'منظفات', 'شحن ألعاب'];
         let categories = [];
 
@@ -827,6 +887,7 @@
                 }
             });
 
+            // تحديث قائمة الفلترة في قسم إدارة المنتجات مع الحفاظ على خيار "جميع الأقسام"
             const filterSel = document.getElementById('adminFilterCategory');
             if (filterSel) {
                 const currentVal = filterSel.value;
@@ -988,7 +1049,12 @@
             buildCategoryManagerModal();
         }
 
+        // ====================================================
+        //  تهيئة لوحة التحكم
+        // ====================================================
         function initAdminDashboard() {
+
+            // استماع المنتجات
             const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
             onSnapshot(qProducts, (snapshot) => {
                 adminState.products = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -999,6 +1065,7 @@
                     `<tr><td colspan="9" style="text-align:center;color:red;">خطأ: ${error.message}</td></tr>`;
             });
 
+            // استماع الطلبات
             const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"));
             onSnapshot(qOrders, (snapshot) => {
                 adminState.orders = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1009,6 +1076,7 @@
                     `<p style="color:red;">خطأ: ${error.message}</p>`;
             });
 
+            // أحداث البحث والفلتر
             document.getElementById('adminSearchProducts')?.addEventListener('input', (e) => {
                 adminState.searchProducts = e.target.value;
                 adminState.productsPage = 1;
@@ -1038,6 +1106,7 @@
                 renderOrders();
             });
 
+            // أزرار الترحيل
             document.getElementById('adminProductsPrev')?.addEventListener('click', () => {
                 if (adminState.productsPage > 1) { adminState.productsPage--; renderProductsTable(); }
             });
@@ -1056,14 +1125,19 @@
                 if (adminState.ordersPage < totalPages) { adminState.ordersPage++; renderOrders(); }
             });
 
+            // تحديد الكل للمنتجات
             document.getElementById('selectAllProducts')?.addEventListener('change', (e) => {
                 document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = e.target.checked);
             });
 
+            // ربط الدوال للنافذة
             window.showToast = showToast;
             window.escapeHTML = escapeHTML;
         }
 
+        // ====================================================
+        //  إضافة منتج جديد
+        // ====================================================
         document.getElementById('addProductForm')?.addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -1101,6 +1175,7 @@
                 saveBtn.disabled = false;
             }
         });
+
     </script>
 </body>
-</html>
+</html

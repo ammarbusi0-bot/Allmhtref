@@ -25,7 +25,7 @@ import {
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase ----------
+// ---------- إعدادات Firebase (بدون تغييرات أمنية كما طلبت) ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -37,7 +37,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const db = getFirestore(app);
 
 let unsubscribeProducts = null;
 let lastOrderTime = 0;
@@ -102,21 +102,14 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية متطابقة مع لوحة التحكم لحساب المخزون الفعلي (تدعم inStock و stock)
+// دالة مركزية لحساب المخزون الفعلي (لحل مشاكل لوحة التحكم)
 export function getStock(product) {
     if (!product) return 0;
     if (product.category === 'شحن ألعاب') return Infinity; 
-    
-    // التوافق مع حقل inStock القادم من لوحة التحكم
-    if (product.inStock === false || product.isAvailable === false || product.available === false) {
-        return 0;
-    }
-    
-    if (product.stock !== undefined && product.stock !== null && product.stock !== '') {
-        return Number(product.stock);
-    }
-    
-    return product.inStock === false ? 0 : 99;
+    const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
+    if (explicitUnavailability) return 0;
+    if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
+    return 99; // المخزون الافتراضي
 }
 
 export function closeWelcomeOverlay() {
@@ -267,22 +260,22 @@ function loadCart() {
             const rawCart = JSON.parse(saved);
             state.cart = rawCart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
-                if (!product) return null;
+                if (!product) return null; // إزالة المنتج إذا تم حذفه من قاعدة البيانات
 
                 const stock = getStock(product);
-                if (stock <= 0) return null;
+                if (stock <= 0) return null; // إزالة المنتج إذا نفذ من المخزون تماماً
 
                 const discount = product.discount ? Number(product.discount) : 0;
                 const basePrice = Number(product.price) || 0;
                 const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
                 
                 let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
-                if (safeQty > stock && stock !== Infinity) {
-                    safeQty = stock;
+                if (safeQty > stock) {
+                    safeQty = stock; // تقييد الكمية لتناسب المخزون الحالي
                 }
                 
                 return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
-            }).filter(Boolean);
+            }).filter(Boolean); // فلترة وإزالة المنتجات الفارغة
             saveCart();
         }
     } catch (e) { state.cart = []; }
@@ -315,7 +308,7 @@ export function addToCart(id) {
     const idx = state.cart.findIndex(item => String(item.id) === String(id));
     const currentQty = idx > -1 ? state.cart[idx].qty : 0;
     
-    if (stock !== Infinity && currentQty >= stock) {
+    if (currentQty >= stock) {
         showToast(`⚠️ الكمية المتوفرة محدودة (${stock} قطعة فقط)`, 'error');
         return;
     }
@@ -364,7 +357,7 @@ export function changeQty(id, delta) {
     
     if (newQty < 1) {
         state.cart.splice(idx, 1);
-    } else if (safeDelta > 0 && stock !== Infinity && newQty > stock) {
+    } else if (safeDelta > 0 && newQty > stock) {
         showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
         return;
     } else {
@@ -548,6 +541,7 @@ export function initCheckoutForm() {
         submitBtn.disabled = true;
 
         try {
+            // المعاملة محصنة من الإعادة العشوائية (Retries)
             const { verifiedItems, verifiedItemsTotal } = await runTransaction(db, async (transaction) => {
                 let tVerifiedItems = [];
                 let tVerifiedItemsTotal = 0;
@@ -564,7 +558,7 @@ export function initCheckoutForm() {
                     const data = productDoc.data();
                     const currentStock = getStock(data);
 
-                    if (data.category !== 'شحن ألعاب' && currentStock < item.qty && currentStock !== Infinity) {
+                    if (data.category !== 'شحن ألعاب' && currentStock < item.qty) {
                         throw new Error(`عذراً، الكمية المتوفرة من "${data.name}" هي ${currentStock} فقط.`);
                     }
 
@@ -582,11 +576,12 @@ export function initCheckoutForm() {
                         price: realPrice
                     });
 
-                    if (data.category !== 'شحن ألعاب' && data.stock !== undefined && data.stock !== null) {
+                    if (data.category !== 'شحن ألعاب') {
                         tUpdates.push({ ref: productRef, newStock: Math.max(0, currentStock - item.qty) });
                     }
                 }
 
+                // تنفيذ تحديث المخزون
                 for (const u of tUpdates) {
                     transaction.update(u.ref, { stock: u.newStock });
                 }
@@ -626,13 +621,13 @@ export function initCheckoutForm() {
                 deliveryType: state.deliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${state.deliveryKm} كم)`,
                 date: new Date().toLocaleString('ar-EG'),
                 createdAt: serverTimestamp(),
-                userId: state.user?.phone || 'guest',
-                status: 'جديد'
+                userId: state.user?.phone || 'guest'
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
             if (state.user) {
+                // إصلاح مشكلة Timestamp في LocalStorage
                 const localOrderData = { ...orderData, createdAt: new Date().toISOString() };
                 state.user.orders = state.user.orders || [];
                 state.user.orders.push({ id: docRef.id, ...localOrderData });
@@ -662,7 +657,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات
+//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -701,7 +696,7 @@ export function displayProducts(items, append = false) {
 
         const stockBadge = document.createElement('span');
         stockBadge.className = `stock-badge ${isAvailable ? 'in-stock' : 'out-of-stock'}`;
-        stockBadge.textContent = isGameCharge ? '🎮 شحن فورّي' : (isAvailable ? `🟢 متوفر` : '🔴 غير متوفر');
+        stockBadge.textContent = isGameCharge ? '🎮 شحن فورّي' : (isAvailable ? `🟢 متوفر (${stock})` : '🔴 غير متوفر');
         stockBadge.style.cssText = 'position:absolute;top:40px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;z-index:2;';
         card.appendChild(stockBadge);
 
@@ -927,7 +922,7 @@ function updateFavButtons() {
 }
 
 // ============================================================
-//  المظهر الداكن (مصدّر خصيصاً ليتطابق مع admin.html)
+//  المظهر الداكن
 // ============================================================
 export function toggleDarkMode() {
     document.body.classList.toggle('dark');
@@ -971,7 +966,7 @@ export function shareProduct(platform, productName, productPrice) {
 }
 
 // ============================================================
-//  رفع الصور (مصدّر خصيصاً ليتطابق مع admin.html)
+//  رفع الصور
 // ============================================================
 function compressImage(file, maxWidth = 300, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -1051,7 +1046,8 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart();
+        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
+        
         resetPagination();
         applyFilters();
         updateCartBadge();
@@ -1165,9 +1161,10 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================================
-//  تصدير العناصر والدوال الأساسية لتتطابق مع admin.html تماماً
+//  تصدير العناصر الأساسية
 // ============================================================
 export {
+    db,
     collection,
     addDoc,
     onSnapshot,

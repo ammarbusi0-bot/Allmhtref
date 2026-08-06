@@ -1,5 +1,6 @@
 // ============================================================
 //  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
+//  تم التحسين: عرض الصور، رفع الصور، الأداء، الاستقرار
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -101,16 +102,15 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية لحساب المخزون الفعلي (تم تحسينها للتعامل مع جميع الحالات)
+// دالة مركزية لحساب المخزون الفعلي
 export function getStock(product) {
     if (!product) return 0;
-    // منتجات شحن الألعاب ليس لها مخزون محدد
-    if (product.category === 'شحن ألعاب') return Number.MAX_SAFE_INTEGER; // استخدم قيمة آمنة بدلاً من Infinity لتجنب مشاكل المقارنة
+    if (product.category === 'شحن ألعاب') return Number.MAX_SAFE_INTEGER;
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
     const stock = Number(product.stock);
     if (!isNaN(stock) && stock >= 0) return stock;
-    return 99; // قيمة افتراضية
+    return 99;
 }
 
 export function closeWelcomeOverlay() {
@@ -135,16 +135,20 @@ export function getUser() {
 }
 
 export function setUser(userData) {
-    localStorage.setItem('alukhowah_user', JSON.stringify(userData));
-    state.user = userData;
-    updateUserUI();
+    try {
+        localStorage.setItem('alukhowah_user', JSON.stringify(userData));
+        state.user = userData;
+        updateUserUI();
+    } catch (e) { console.warn('setUser error:', e); }
 }
 
 export function logoutUser() {
-    localStorage.removeItem('alukhowah_user');
-    state.user = null;
-    updateUserUI();
-    showToast('تم تسجيل الخروج', 'info');
+    try {
+        localStorage.removeItem('alukhowah_user');
+        state.user = null;
+        updateUserUI();
+        showToast('تم تسجيل الخروج', 'info');
+    } catch (e) { console.warn('logoutUser error:', e); }
 }
 
 export function updateUserUI() {
@@ -279,6 +283,7 @@ function loadCart() {
         }
     } catch (e) {
         state.cart = [];
+        saveCart();
     }
 }
 
@@ -432,8 +437,7 @@ export function toggleCartModal() {
     if (!modal) return;
     modal.classList.toggle('open');
     if (modal.classList.contains('open')) {
-        // تحديث بيانات التوصيل أولاً، ثم عرض السلة
-        updateDelivery(false); // false لمنع إعادة العرض داخل الدالة
+        updateDelivery(false);
         renderCartItems();
     }
 }
@@ -483,7 +487,6 @@ export function renderCartItems() {
     }
 }
 
-// تحسين دالة التحديث: تتلقى معامل `render` لتحديد ما إذا كانت تعيد العرض أم لا
 export function updateDelivery(render = true) {
     const typeEl = document.getElementById('deliveryType');
     const kmContainer = document.getElementById('kmInputContainer');
@@ -505,7 +508,6 @@ export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
     if (!form) return;
 
-    // مستمع لتغيير نوع التوصيل (بدلاً من الاعتماد على onchange في HTML)
     const deliveryTypeEl = document.getElementById('deliveryType');
     if (deliveryTypeEl) {
         deliveryTypeEl.addEventListener('change', () => updateDelivery(true));
@@ -664,7 +666,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
+//  عرض المنتجات (معالجة متطورة لتوفر المخزون وتحسين الصور)
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -683,8 +685,9 @@ export function displayProducts(items, append = false) {
     items.forEach(p => {
         const isFav = favs.includes(String(p.id));
         const imgUrl = String(p.imageUrl || '').trim();
-        const isValid = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
-        
+        // تحسين فحص الرابط: يعتبر صالحاً إذا بدأ بـ http أو كان base64
+        const isValid = imgUrl && (imgUrl.startsWith('http') || imgUrl.startsWith('data:image'));
+
         const stock = getStock(p);
         const isGameCharge = p.category === 'شحن ألعاب';
         const isAvailable = isGameCharge || stock > 0;
@@ -693,6 +696,7 @@ export function displayProducts(items, append = false) {
         card.className = 'product-card';
         card.dataset.id = p.id;
 
+        // شارة الخصم
         const discount = p.discount ? Number(p.discount) : 0;
         if (discount > 0) {
             const badge = document.createElement('span');
@@ -701,12 +705,14 @@ export function displayProducts(items, append = false) {
             card.appendChild(badge);
         }
 
+        // شارة المخزون
         const stockBadge = document.createElement('span');
         stockBadge.className = `stock-badge ${isAvailable ? 'in-stock' : 'out-of-stock'}`;
         stockBadge.textContent = isGameCharge ? '🎮 شحن فورّي' : (isAvailable ? `🟢 متوفر (${stock})` : '🔴 غير متوفر');
         stockBadge.style.cssText = 'position:absolute;top:40px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;z-index:2;';
         card.appendChild(stockBadge);
 
+        // زر المفضلة
         const favBtn = document.createElement('div');
         favBtn.className = `fav-btn ${isFav ? 'active' : ''}`;
         favBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
@@ -716,17 +722,24 @@ export function displayProducts(items, append = false) {
         };
         card.appendChild(favBtn);
 
+        // حاوية الصورة
         const imgContainer = document.createElement('div');
         imgContainer.className = 'product-img';
+
         if (isValid) {
             const img = document.createElement('img');
             img.src = imgUrl;
             img.alt = escapeHTML(p.name);
             img.loading = 'lazy';
-            img.onerror = () => {
-                img.style.display = 'none';
-                if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
+            img.decode = 'async'; // تحسين التحميل
+
+            // معالج الخطأ المحسّن
+            img.onerror = function() {
+                this.style.display = 'none';
+                const fallback = this.nextElementSibling;
+                if (fallback) fallback.style.display = 'flex';
             };
+
             imgContainer.appendChild(img);
 
             const fallback = document.createElement('div');
@@ -742,6 +755,7 @@ export function displayProducts(items, append = false) {
         }
         card.appendChild(imgContainer);
 
+        // معلومات المنتج
         const info = document.createElement('div');
         info.className = 'product-info';
         const title = document.createElement('div');
@@ -763,6 +777,7 @@ export function displayProducts(items, append = false) {
         info.appendChild(priceDiv);
         card.appendChild(info);
 
+        // أزرار المشاركة
         const shareBtns = document.createElement('div');
         shareBtns.className = 'share-buttons';
         shareBtns.style.cssText = 'display:flex;gap:8px;margin:5px 0;justify-content:center;';
@@ -780,6 +795,7 @@ export function displayProducts(items, append = false) {
         });
         card.appendChild(shareBtns);
 
+        // زر الإضافة للسلة / واتساب
         const addBtn = document.createElement('button');
         addBtn.className = 'btn-add-cart';
         
@@ -972,7 +988,7 @@ export function shareProduct(platform, productName, productPrice) {
 }
 
 // ============================================================
-//  رفع الصور
+//  رفع الصور (محسّن مع إعادة المحاولة)
 // ============================================================
 function compressImage(file, maxWidth = 300, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -1005,33 +1021,62 @@ function compressImage(file, maxWidth = 300, quality = 0.7) {
     });
 }
 
-export async function uploadImageToImgBB(fileOrInput) {
+export async function uploadImageToImgBB(fileOrInput, retries = 2) {
     let file = null;
     if (fileOrInput instanceof File) file = fileOrInput;
     else if (fileOrInput?.files?.[0]) file = fileOrInput.files[0];
     else return '';
 
-    try {
-        const compressedBase64 = await compressImage(file, 300, 0.7);
-        if (!compressedBase64) return '';
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const compressedBase64 = await compressImage(file, 300, 0.7);
+            if (!compressedBase64) return '';
 
-        const blob = await fetch(compressedBase64).then(r => r.blob());
-        const formData = new FormData();
-        formData.append('image', blob, 'product.jpg');
+            const blob = await fetch(compressedBase64).then(r => r.blob());
+            const formData = new FormData();
+            formData.append('image', blob, 'product.jpg');
 
-        const myKey = "42b6820dc31a25d977adefc41f83aa70";
-        const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
-            method: 'POST',
-            body: formData
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (data?.data?.url) return data.data.url;
+            const myKey = "42b6820dc31a25d977adefc41f83aa70";
+            // استخدام AbortController للتحكم في المهلة
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data?.data?.url) {
+                    return data.data.url;
+                } else {
+                    throw new Error('استجابة غير صالحة من ImgBB');
+                }
+            } else {
+                throw new Error(`HTTP ${res.status}`);
+            }
+        } catch (error) {
+            lastError = error;
+            console.warn(`محاولة رفع الصورة ${attempt+1} فشلت:`, error.message);
+            if (attempt < retries) {
+                // انتظار قبل إعادة المحاولة
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            }
         }
-    } catch (e) {
-        console.warn("ImgBB فشل، نستخدم Base64", e);
     }
-    return await compressImage(file, 300, 0.7);
+
+    // إذا فشلت جميع المحاولات، نعود لاستخدام Base64 كحل بديل
+    try {
+        const base64 = await compressImage(file, 300, 0.7);
+        return base64 || '';
+    } catch (e) {
+        console.error('فشل حتى في الضغط المحلي:', e);
+        return '';
+    }
 }
 
 // ============================================================
@@ -1052,7 +1097,7 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
+        loadCart();
         
         resetPagination();
         applyFilters();
@@ -1160,14 +1205,23 @@ export function initMainPage() {
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMainPage);
-} else {
+// منع التعارض مع لوحة التحكم (تحسين)
+function startApp() {
+    if (document.getElementById('adminMainContent')) {
+        console.log('لوحة التحكم مكتشفة، نمنع تهيئة الصفحة الرئيسية');
+        return;
+    }
     initMainPage();
 }
 
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startApp);
+} else {
+    startApp();
+}
+
 // ============================================================
-//  تصدير العناصر الأساسية
+//  تصدير العناصر الأساسية (مع إضافة الدوال الجديدة)
 // ============================================================
 export {
     db,
@@ -1188,5 +1242,9 @@ export {
     updateDoc,
     arrayUnion,
     arrayRemove,
-    runTransaction
+    runTransaction,
+    escapeHTML,
+    uploadImageToImgBB,
+    toggleDarkMode,
+    loadDarkModePreference
 };

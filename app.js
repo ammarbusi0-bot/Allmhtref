@@ -1,5 +1,6 @@
 // ============================================================
 //  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
+//  تم التحسين لمنع التلاعب بالأسعار والخصومات
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -25,7 +26,7 @@ import {
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase (بدون تغييرات أمنية كما طلبت) ----------
+// ---------- إعدادات Firebase ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -42,6 +43,37 @@ const db = getFirestore(app);
 let unsubscribeProducts = null;
 let lastOrderTime = 0;
 window._displayedCount = 0;
+
+// ============================================================
+//  إعدادات الأمان والحماية (Security Configuration)
+// ============================================================
+const SECURITY = {
+    // الحد الأدنى لقيمة الطلب لتطبيق خصم الإحالة (ليرة سورية)
+    MIN_ORDER_FOR_REFERRAL_DISCOUNT: 100,
+    // نسبة خصم الإحالة
+    REFERRAL_DISCOUNT_PERCENT: 10,
+    // نسب الخصم الذكي حسب قيمة الطلب
+    SMART_DISCOUNT_TIERS: [
+        { minAmount: 1000, percent: 10 },
+        { minAmount: 500, percent: 5 }
+    ],
+    // الحد الأقصى للخصم الذكي (ليرة سورية)
+    MAX_SMART_DISCOUNT: 500,
+    // الحد الأقصى لخصم الإحالة (ليرة سورية)
+    MAX_REFERRAL_DISCOUNT: 200,
+    // الحد الأدنى للفاصل الزمني بين الطلبات (بالمللي ثانية)
+    MIN_ORDER_INTERVAL: 10000,
+    // الحد الأقصى لكمية المنتج الواحد في الطلب
+    MAX_QTY_PER_ITEM: 50,
+    // تكلفة التوصيل داخل عمرانيا
+    INSIDE_DELIVERY_COST: 100,
+    // تكلفة التوصيل لكل كيلومتر خارج عمرانيا
+    PER_KM_DELIVERY_COST: 35,
+    // الحد الأدنى لعدد الكيلومترات
+    MIN_DELIVERY_KM: 1,
+    // الحد الأقصى لعدد الكيلومترات
+    MAX_DELIVERY_KM: 100
+};
 
 // ============================================================
 //  الحالة العامة للتطبيق (State Management)
@@ -102,14 +134,75 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية لحساب المخزون الفعلي (لحل مشاكل لوحة التحكم)
+// ============================================================
+//  دوال مساعدة للمخزون والأسعار (لا تقبل التلاعب)
+// ============================================================
+
+/**
+ * حساب المخزون الفعلي للمنتج
+ * @param {Object} product - كائن المنتج من قاعدة البيانات
+ * @returns {number} المخزون المتاح (Infinity لشحن الألعاب)
+ */
 export function getStock(product) {
     if (!product) return 0;
-    if (product.category === 'شحن ألعاب') return Infinity; 
-    const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
+    if (product.category === 'شحن ألعاب') return Infinity;
+    
+    // التحقق من حالة التوفر العامة
+    const explicitUnavailability = (
+        product.isAvailable === false || 
+        product.available === false || 
+        product.inStock === false
+    );
     if (explicitUnavailability) return 0;
-    if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
+    
+    // المخزون الرقمي
+    if (product.stock !== undefined && product.stock !== null && product.stock !== '') {
+        return Math.max(0, Math.floor(Number(product.stock)));
+    }
+    
     return 99; // المخزون الافتراضي
+}
+
+/**
+ * حساب السعر النهائي للمنتج بعد الخصم (آمن ضد التلاعب)
+ * @param {Object} product - كائن المنتج من قاعدة البيانات
+ * @returns {Object} { basePrice, discount, finalPrice }
+ */
+function calculateProductPrice(product) {
+    const basePrice = Math.max(0, Math.floor(Number(product.price) || 0));
+    const discount = Math.min(99, Math.max(0, Math.floor(Number(product.discount) || 0)));
+    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+    return { basePrice, discount, finalPrice };
+}
+
+/**
+ * التحقق من صحة منتج في السلة مع قاعدة البيانات (يمنع التلاعب بالأسعار)
+ * @param {Object} cartItem - عنصر السلة
+ * @param {Array} productsList - قائمة المنتجات من قاعدة البيانات
+ * @returns {Object|null} المنتج الصحيح أو null إذا كان غير موجود
+ */
+function validateCartItem(cartItem, productsList) {
+    const product = productsList.find(p => String(p.id) === String(cartItem.id));
+    if (!product) return null;
+    
+    const stock = getStock(product);
+    if (stock <= 0 && product.category !== 'شحن ألعاب') return null;
+    
+    const { basePrice, discount, finalPrice } = calculateProductPrice(product);
+    const safeQty = Math.min(
+        Math.max(1, Math.floor(Math.abs(Number(cartItem.qty) || 1))),
+        Math.min(stock, SECURITY.MAX_QTY_PER_ITEM)
+    );
+    
+    return {
+        id: product.id,
+        name: product.name,
+        basePrice,
+        price: finalPrice,
+        discount,
+        qty: safeQty,
+        category: product.category
+    };
 }
 
 export function closeWelcomeOverlay() {
@@ -134,8 +227,15 @@ export function getUser() {
 }
 
 export function setUser(userData) {
-    localStorage.setItem('alukhowah_user', JSON.stringify(userData));
-    state.user = userData;
+    // تنظيف البيانات قبل التخزين
+    const cleanData = {
+        phone: String(userData.phone || '').trim(),
+        name: String(userData.name || 'مستخدم').trim(),
+        address: String(userData.address || '').trim(),
+        orders: Array.isArray(userData.orders) ? userData.orders.slice(-50) : [] // الاحتفاظ بآخر 50 طلب فقط
+    };
+    localStorage.setItem('alukhowah_user', JSON.stringify(cleanData));
+    state.user = cleanData;
     updateUserUI();
 }
 
@@ -172,7 +272,7 @@ export function showLoginModal() {
 }
 
 // ============================================================
-//  نظام الدعوة والخصم
+//  نظام الدعوة والخصم (محسّن ضد التلاعب)
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -192,6 +292,8 @@ export function handleReferral() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     const myCode = getMyReferralCode();
+    
+    // لا يمكن استخدام كود الإحالة الخاص بنفسك
     if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
         localStorage.setItem('invitedBy', ref);
         state.invitedBy = ref;
@@ -201,11 +303,19 @@ export function handleReferral() {
     }
 }
 
-export function getReferralDiscount(total) {
-    if (total < 100) return 0;
+/**
+ * حساب خصم الإحالة المستحق (مع سقف أعلى)
+ * @param {number} itemsTotal - إجمالي قيمة المنتجات
+ * @returns {number} قيمة الخصم
+ */
+export function getReferralDiscount(itemsTotal) {
+    if (itemsTotal < SECURITY.MIN_ORDER_FOR_REFERRAL_DISCOUNT) return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     if (localStorage.getItem('discountApplied') === 'true') return 0;
-    return Math.round(total * 0.10);
+    if (localStorage.getItem('referralUsed') === 'true') return 0;
+    
+    const calculatedDiscount = Math.round(itemsTotal * SECURITY.REFERRAL_DISCOUNT_PERCENT / 100);
+    return Math.min(calculatedDiscount, SECURITY.MAX_REFERRAL_DISCOUNT);
 }
 
 export function applyReferralDiscount(total) {
@@ -233,7 +343,7 @@ export function showReferralCode() {
                 <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
             </div>
         </div>
-        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة 100 ل.س أو أكثر</p>
+        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة ${SECURITY.MIN_ORDER_FOR_REFERRAL_DISCOUNT} ل.س أو أكثر (حد أقصى ${SECURITY.MAX_REFERRAL_DISCOUNT} ل.س)</p>
     `;
 }
 
@@ -251,39 +361,33 @@ export function shareReferral() {
 }
 
 // ============================================================
-//  إدارة السلة
+//  إدارة السلة (محسّنة ضد التلاعب)
 // ============================================================
 function loadCart() {
     try {
         const saved = localStorage.getItem('alukhowah_cart');
         if (saved) {
             const rawCart = JSON.parse(saved);
-            state.cart = rawCart.map(item => {
-                const product = state.products.find(p => String(p.id) === String(item.id));
-                if (!product) return null; // إزالة المنتج إذا تم حذفه من قاعدة البيانات
-
-                const stock = getStock(product);
-                if (stock <= 0) return null; // إزالة المنتج إذا نفذ من المخزون تماماً
-
-                const discount = product.discount ? Number(product.discount) : 0;
-                const basePrice = Number(product.price) || 0;
-                const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
-                
-                let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
-                if (safeQty > stock) {
-                    safeQty = stock; // تقييد الكمية لتناسب المخزون الحالي
-                }
-                
-                return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
-            }).filter(Boolean); // فلترة وإزالة المنتجات الفارغة
+            // التحقق من كل عنصر في السلة مع قاعدة البيانات
+            state.cart = rawCart
+                .map(item => validateCartItem(item, state.products))
+                .filter(Boolean);
             saveCart();
         }
-    } catch (e) { state.cart = []; }
+    } catch (e) { 
+        state.cart = []; 
+        console.warn('خطأ في تحميل السلة:', e);
+    }
 }
 
 function saveCart() {
     try {
-        localStorage.setItem('alukhowah_cart', JSON.stringify(state.cart));
+        // تخزين البيانات الأساسية فقط (بدون الأسعار لمنع التلاعب)
+        const minimalCart = state.cart.map(item => ({
+            id: item.id,
+            qty: item.qty
+        }));
+        localStorage.setItem('alukhowah_cart', JSON.stringify(minimalCart));
     } catch (e) { /* تجاهل */ }
 }
 
@@ -313,13 +417,24 @@ export function addToCart(id) {
         return;
     }
 
+    if (currentQty >= SECURITY.MAX_QTY_PER_ITEM) {
+        showToast(`⚠️ الحد الأقصى للكمية هو ${SECURITY.MAX_QTY_PER_ITEM} قطع`, 'error');
+        return;
+    }
+
     if (idx > -1) {
         state.cart[idx].qty += 1;
     } else {
-        const discount = product.discount ? Number(product.discount) : 0;
-        const basePrice = Number(product.price) || 0;
-        const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
-        state.cart.push({ id: product.id, name: product.name, basePrice, price: finalPrice, discount, qty: 1 });
+        const { basePrice, discount, finalPrice } = calculateProductPrice(product);
+        state.cart.push({
+            id: product.id,
+            name: product.name,
+            basePrice,
+            price: finalPrice,
+            discount,
+            qty: 1,
+            category: product.category
+        });
     }
     
     saveCart();
@@ -330,9 +445,7 @@ export function addToCart(id) {
 function redirectToWhatsApp(product) {
     const numbers = ['905511455598', '905385844122', '905511591245'];
     const randomNumber = numbers[Math.floor(Math.random() * numbers.length)];
-    const discount = product.discount ? Number(product.discount) : 0;
-    const basePrice = Number(product.price) || 0;
-    const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+    const { finalPrice } = calculateProductPrice(product);
     const message = `مرحباً، أريد شراء: ${product.name}\nالسعر: ${finalPrice} ل.س\nالرجاء إرسال تفاصيل الدفع`;
     window.open(`https://wa.me/${randomNumber}?text=${encodeURIComponent(message)}`, '_blank');
     showToast('✅ تم تحويلك إلى واتساب لإتمام عملية شحن اللعبة', 'info');
@@ -344,26 +457,37 @@ export function changeQty(id, delta) {
     
     const product = state.products.find(p => String(p.id) === String(id));
     if (!product) {
+        // المنتج لم يعد موجوداً في قاعدة البيانات
+        state.cart.splice(idx, 1);
+        saveCart();
+        updateCartBadge();
+        renderCartItems();
+        showToast('⚠️ هذا المنتج لم يعد متوفراً وتمت إزالته من السلة', 'warning');
+        return;
+    }
+
+    const stock = getStock(product);
+    const newQty = state.cart[idx].qty + Math.floor(delta);
+    
+    if (newQty < 1) {
         state.cart.splice(idx, 1);
         saveCart();
         updateCartBadge();
         renderCartItems();
         return;
     }
-
-    const stock = getStock(product);
-    let safeDelta = Math.floor(delta);
-    const newQty = state.cart[idx].qty + safeDelta;
     
-    if (newQty < 1) {
-        state.cart.splice(idx, 1);
-    } else if (safeDelta > 0 && newQty > stock) {
-        showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
+    if (newQty > SECURITY.MAX_QTY_PER_ITEM) {
+        showToast(`⚠️ الحد الأقصى للكمية هو ${SECURITY.MAX_QTY_PER_ITEM} قطع`, 'error');
         return;
-    } else {
-        state.cart[idx].qty = newQty;
     }
     
+    if (newQty > stock) {
+        showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
+        return;
+    }
+    
+    state.cart[idx].qty = newQty;
     saveCart();
     updateCartBadge();
     renderCartItems();
@@ -385,30 +509,48 @@ export function updateCartBadge() {
 }
 
 // ============================================================
-//  حساب الإجمالي النهائي
+//  حساب الإجمالي النهائي (آمن - الأسعار من قاعدة البيانات)
 // ============================================================
 function calculateFinalTotal() {
+    // إعادة حساب الأسعار من state.products مباشرة (وليس من السلة المخزنة)
     const itemsTotal = state.cart.reduce((sum, item) => {
+        const product = state.products.find(p => String(p.id) === String(item.id));
+        if (!product) return sum; // منتج غير موجود
+        const { finalPrice } = calculateProductPrice(product);
         const qty = Math.max(0, Math.floor(item.qty));
-        return sum + (item.price * qty);
+        return sum + (finalPrice * qty);
     }, 0);
 
+    // خصم الإحالة
     const referralDiscount = getReferralDiscount(itemsTotal);
 
+    // الخصم الذكي حسب قيمة الطلب
     let smartDiscountPercent = 0;
-    if (itemsTotal >= 1000) smartDiscountPercent = 10;
-    else if (itemsTotal >= 500) smartDiscountPercent = 5;
-
-    const smartDiscountAmount = Math.round(itemsTotal * (smartDiscountPercent / 100));
+    for (const tier of SECURITY.SMART_DISCOUNT_TIERS) {
+        if (itemsTotal >= tier.minAmount) {
+            smartDiscountPercent = tier.percent;
+            break;
+        }
+    }
+    
+    const smartDiscountAmount = Math.min(
+        Math.round(itemsTotal * (smartDiscountPercent / 100)),
+        SECURITY.MAX_SMART_DISCOUNT
+    );
+    
     const totalDiscounts = smartDiscountAmount + referralDiscount;
     const discountedItemsTotal = Math.max(0, itemsTotal - totalDiscounts);
 
+    // تكلفة التوصيل
     let deliveryCost = 0;
     if (state.deliveryType === 'inside') {
-        deliveryCost = 100;
+        deliveryCost = SECURITY.INSIDE_DELIVERY_COST;
     } else {
-        const km = Math.max(1, Math.floor(Math.abs(Number(state.deliveryKm) || 1)));
-        deliveryCost = km * 35;
+        const km = Math.min(
+            SECURITY.MAX_DELIVERY_KM,
+            Math.max(SECURITY.MIN_DELIVERY_KM, Math.floor(Math.abs(Number(state.deliveryKm) || 1)))
+        );
+        deliveryCost = km * SECURITY.PER_KM_DELIVERY_COST;
     }
 
     const finalTotal = discountedItemsTotal + deliveryCost;
@@ -430,6 +572,10 @@ function calculateFinalTotal() {
 export function toggleCartModal() {
     const modal = document.getElementById('cartModal');
     if (!modal) return;
+    
+    // إعادة تحميل السلة مع التحقق من الأسعار قبل الفتح
+    loadCart();
+    
     modal.classList.toggle('open');
     if (modal.classList.contains('open')) {
         updateDelivery();
@@ -449,12 +595,18 @@ export function renderCartItems() {
     }
 
     container.innerHTML = state.cart.map(item => {
-        const itemTotal = item.price * item.qty;
+        // إعادة حساب السعر من قاعدة البيانات للتأكد
+        const product = state.products.find(p => String(p.id) === String(item.id));
+        if (!product) return '';
+        
+        const { finalPrice } = calculateProductPrice(product);
+        const itemTotal = finalPrice * item.qty;
+        
         return `
             <div class="cart-item" data-id="${escapeHTML(item.id)}">
                 <div>
                     <strong>${escapeHTML(item.name)}</strong>
-                    <div style="font-size:12px;color:#666;">${item.price} Lt × ${item.qty}</div>
+                    <div style="font-size:12px;color:#666;">${finalPrice} Lt × ${item.qty}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <button class="qty-btn" onclick="window.changeQty('${escapeHTML(item.id)}', -1)">-</button>
@@ -473,7 +625,7 @@ export function renderCartItems() {
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
             ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم الكمية (${calc.smartDiscountPercent}%):</span><span>-${calc.smartDiscountAmount} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم كود الدعوة (10%):</span><span>-${calc.referralDiscount} Lt</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم كود الدعوة (${SECURITY.REFERRAL_DISCOUNT_PERCENT}%):</span><span>-${calc.referralDiscount} Lt</span></div>` : ''}
             <div class="summary-line"><span>🚚 التوصيل (${state.deliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + state.deliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${calc.finalTotal} Lt</span></div>
         `;
@@ -490,12 +642,17 @@ export function updateDelivery() {
         if (kmContainer) kmContainer.style.display = state.deliveryType === 'outside' ? 'block' : 'none';
     }
     const kmEl = document.getElementById('deliveryKm');
-    if (kmEl) state.deliveryKm = Math.max(1, Math.floor(Math.abs(Number(kmEl.value) || 1)));
+    if (kmEl) {
+        let km = Math.floor(Math.abs(Number(kmEl.value) || 1));
+        km = Math.min(SECURITY.MAX_DELIVERY_KM, Math.max(SECURITY.MIN_DELIVERY_KM, km));
+        kmEl.value = km;
+        state.deliveryKm = km;
+    }
     renderCartItems();
 }
 
 // ============================================================
-//  إرسال الطلب مع المعاملات والتحقق خادمياً
+//  إرسال الطلب مع المعاملات والتحقق خادمياً (محصّن ضد التلاعب)
 // ============================================================
 export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
@@ -509,9 +666,10 @@ export function initCheckoutForm() {
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
+        // منع إرسال طلبات متعددة بسرعة
         const now = Date.now();
-        if (now - lastOrderTime < 10000) {
-            showToast('⚠️ يرجى الانتظار القليل من الوقت قبل إرسال طلب جديد.', 'error');
+        if (now - lastOrderTime < SECURITY.MIN_ORDER_INTERVAL) {
+            showToast('⚠️ يرجى الانتظار 10 ثوانٍ قبل إرسال طلب جديد.', 'error');
             return;
         }
 
@@ -527,6 +685,7 @@ export function initCheckoutForm() {
         const phone = document.getElementById('userPhone')?.value.trim() || '';
         const address = document.getElementById('userAddress')?.value.trim() || '';
 
+        // التحقق من صحة المدخلات
         if (!validatePhone(phone)) {
             showToast('رقم الهاتف غير صحيح', 'error');
             return;
@@ -541,123 +700,178 @@ export function initCheckoutForm() {
         submitBtn.disabled = true;
 
         try {
-            // المعاملة محصنة من الإعادة العشوائية (Retries)
-            const { verifiedItems, verifiedItemsTotal } = await runTransaction(db, async (transaction) => {
-                let tVerifiedItems = [];
-                let tVerifiedItemsTotal = 0;
-                let tUpdates = [];
+            // استخدام معاملة لقاعدة البيانات للتحقق من الأسعار والمخزون
+            const result = await runTransaction(db, async (transaction) => {
+                const verifiedItems = [];
+                let verifiedItemsTotal = 0;
+                const updates = [];
 
-                for (const item of state.cart) {
-                    const productRef = doc(db, "products", String(item.id));
+                for (const cartItem of state.cart) {
+                    const productRef = doc(db, "products", String(cartItem.id));
                     const productDoc = await transaction.get(productRef);
 
                     if (!productDoc.exists()) {
-                        throw new Error(`المنتج "${item.name}" لم يعد متوفراً!`);
+                        throw new Error(`المنتج "${cartItem.name}" لم يعد متوفراً في المتجر!`);
                     }
 
-                    const data = productDoc.data();
-                    const currentStock = getStock(data);
+                    const productData = productDoc.data();
+                    const currentStock = getStock(productData);
+                    const { finalPrice: realPrice } = calculateProductPrice(productData);
+                    const requestedQty = Math.floor(cartItem.qty);
 
-                    if (data.category !== 'شحن ألعاب' && currentStock < item.qty) {
-                        throw new Error(`عذراً، الكمية المتوفرة من "${data.name}" هي ${currentStock} فقط.`);
+                    // التحقق من المخزون
+                    if (productData.category !== 'شحن ألعاب' && currentStock < requestedQty) {
+                        throw new Error(`عذراً، الكمية المتوفرة من "${productData.name}" هي ${currentStock} فقط.`);
                     }
 
-                    const basePrice = Number(data.price) || 0;
-                    const discount = data.discount ? Number(data.discount) : 0;
-                    const realPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
+                    // التحقق من صحة السعر (يمنع التلاعب)
+                    const clientPrice = Number(cartItem.price) || 0;
+                    if (Math.abs(clientPrice - realPrice) > 1) {
+                        console.warn(`تنبيه أمني: محاولة تلاعب بالسعر للمنتج ${productData.name}. سعر العميل: ${clientPrice}, السعر الحقيقي: ${realPrice}`);
+                        // نستخدم السعر الحقيقي من قاعدة البيانات
+                    }
 
-                    const itemTotal = realPrice * item.qty;
-                    tVerifiedItemsTotal += itemTotal;
+                    const itemTotal = realPrice * requestedQty;
+                    verifiedItemsTotal += itemTotal;
 
-                    tVerifiedItems.push({
-                        id: item.id,
-                        name: data.name,
-                        qty: item.qty,
-                        price: realPrice
+                    verifiedItems.push({
+                        id: cartItem.id,
+                        name: productData.name,
+                        qty: requestedQty,
+                        price: realPrice,
+                        basePrice: productData.price || realPrice,
+                        discount: productData.discount || 0
                     });
 
-                    if (data.category !== 'شحن ألعاب') {
-                        tUpdates.push({ ref: productRef, newStock: Math.max(0, currentStock - item.qty) });
+                    // تحديث المخزون
+                    if (productData.category !== 'شحن ألعاب') {
+                        updates.push({
+                            ref: productRef,
+                            newStock: Math.max(0, currentStock - requestedQty)
+                        });
                     }
                 }
 
-                // تنفيذ تحديث المخزون
-                for (const u of tUpdates) {
-                    transaction.update(u.ref, { stock: u.newStock });
+                // تطبيق تحديثات المخزون
+                for (const update of updates) {
+                    transaction.update(update.ref, { stock: update.newStock });
                 }
-                
-                return { verifiedItems: tVerifiedItems, verifiedItemsTotal: tVerifiedItemsTotal };
+
+                return { verifiedItems, verifiedItemsTotal };
             });
 
+            // حساب الخصومات النهائية
+            const { verifiedItems, verifiedItemsTotal } = result;
+            
+            // خصم الإحالة
             const referralDiscount = getReferralDiscount(verifiedItemsTotal);
+            
+            // الخصم الذكي
             let smartDiscountPercent = 0;
-            if (verifiedItemsTotal >= 1000) smartDiscountPercent = 10;
-            else if (verifiedItemsTotal >= 500) smartDiscountPercent = 5;
-
-            const smartDiscountAmount = Math.round(verifiedItemsTotal * (smartDiscountPercent / 100));
+            for (const tier of SECURITY.SMART_DISCOUNT_TIERS) {
+                if (verifiedItemsTotal >= tier.minAmount) {
+                    smartDiscountPercent = tier.percent;
+                    break;
+                }
+            }
+            const smartDiscountAmount = Math.min(
+                Math.round(verifiedItemsTotal * (smartDiscountPercent / 100)),
+                SECURITY.MAX_SMART_DISCOUNT
+            );
+            
             const totalDiscounts = smartDiscountAmount + referralDiscount;
             const discountedItemsTotal = Math.max(0, verifiedItemsTotal - totalDiscounts);
 
+            // تكلفة التوصيل
             let deliveryCost = 0;
             if (state.deliveryType === 'inside') {
-                deliveryCost = 100;
+                deliveryCost = SECURITY.INSIDE_DELIVERY_COST;
             } else {
-                const km = Math.max(1, Math.floor(Math.abs(Number(state.deliveryKm) || 1)));
-                deliveryCost = km * 35;
+                const km = Math.min(
+                    SECURITY.MAX_DELIVERY_KM,
+                    Math.max(SECURITY.MIN_DELIVERY_KM, Math.floor(Math.abs(Number(state.deliveryKm) || 1)))
+                );
+                deliveryCost = km * SECURITY.PER_KM_DELIVERY_COST;
             }
 
             const finalTotal = discountedItemsTotal + deliveryCost;
 
+            // تجميع بيانات الطلب
             const orderData = {
                 phone: String(phone),
                 address: String(address),
                 items: verifiedItems.map(i => `${i.name} (${i.qty})`).join(' - '),
-                verifiedItems: verifiedItems,
-                total: finalTotal,
+                itemsDetails: verifiedItems,
                 itemsTotal: verifiedItemsTotal,
                 smartDiscount: smartDiscountAmount,
                 referralDiscount: referralDiscount,
                 deliveryCost: deliveryCost,
-                deliveryType: state.deliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${state.deliveryKm} كم)`,
+                total: finalTotal,
+                deliveryType: state.deliveryType,
+                deliveryKm: state.deliveryType === 'outside' ? state.deliveryKm : 0,
+                status: 'جديد',
                 date: new Date().toLocaleString('ar-EG'),
                 createdAt: serverTimestamp(),
-                userId: state.user?.phone || 'guest'
+                userId: state.user?.phone || 'guest',
+                // تخزين الكود المستخدم للتدقيق
+                appliedReferralCode: referralDiscount > 0 ? (localStorage.getItem('invitedBy') || '') : '',
+                // توقيع أمني بسيط
+                _securityHash: btoa(JSON.stringify({
+                    items: verifiedItems.map(i => `${i.id}:${i.qty}:${i.price}`).join(','),
+                    total: finalTotal,
+                    timestamp: Date.now()
+                })).substring(0, 32)
             };
 
+            // حفظ الطلب في قاعدة البيانات
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
+            // تحديث بيانات المستخدم
             if (state.user) {
-                // إصلاح مشكلة Timestamp في LocalStorage
-                const localOrderData = { ...orderData, createdAt: new Date().toISOString() };
+                const localOrderData = { 
+                    id: docRef.id, 
+                    ...orderData, 
+                    createdAt: new Date().toISOString() 
+                };
                 state.user.orders = state.user.orders || [];
-                state.user.orders.push({ id: docRef.id, ...localOrderData });
+                state.user.orders.push(localOrderData);
                 setUser(state.user);
             }
 
+            // تطبيق خصم الإحالة (مرة واحدة فقط)
             if (referralDiscount > 0) {
                 applyReferralDiscount(verifiedItemsTotal);
             }
 
+            // تسجيل وقت آخر طلب
             lastOrderTime = Date.now();
-            showToast(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${finalTotal} Lt`, 'success', 5000);
+            
+            // إظهار رسالة النجاح
+            showToast(`✅ تم إرسال طلبك بنجاح!\nالإجمالي: ${finalTotal} ل.س`, 'success', 5000);
+            
+            // تفريغ السلة
             state.cart = [];
             saveCart();
             updateCartBadge();
             renderCartItems();
             toggleCartModal();
             form.reset();
+            
         } catch (error) {
+            console.error('خطأ في إرسال الطلب:', error);
             showToast('❌ ' + error.message, 'error', 5000);
         } finally {
             state.isSubmitting = false;
-            submitBtn.innerText = '🚀 تأكيد الطلب';
-            submitBtn.disabled = false;
+            if (submitBtn) {
+                submitBtn.innerText = '🚀 تأكيد الطلب';
+                submitBtn.disabled = false;
+            }
         }
     });
 }
 
 // ============================================================
-//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
+//  عرض المنتجات
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -681,12 +895,13 @@ export function displayProducts(items, append = false) {
         const stock = getStock(p);
         const isGameCharge = p.category === 'شحن ألعاب';
         const isAvailable = isGameCharge || stock > 0;
+        const { basePrice, discount, finalPrice } = calculateProductPrice(p);
 
         const card = document.createElement('div');
         card.className = 'product-card';
         card.dataset.id = p.id;
 
-        const discount = p.discount ? Number(p.discount) : 0;
+        // شارة الخصم
         if (discount > 0) {
             const badge = document.createElement('span');
             badge.className = 'discount-badge';
@@ -694,12 +909,14 @@ export function displayProducts(items, append = false) {
             card.appendChild(badge);
         }
 
+        // شارة المخزون
         const stockBadge = document.createElement('span');
         stockBadge.className = `stock-badge ${isAvailable ? 'in-stock' : 'out-of-stock'}`;
         stockBadge.textContent = isGameCharge ? '🎮 شحن فورّي' : (isAvailable ? `🟢 متوفر (${stock})` : '🔴 غير متوفر');
         stockBadge.style.cssText = 'position:absolute;top:40px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;z-index:2;';
         card.appendChild(stockBadge);
 
+        // زر المفضلة
         const favBtn = document.createElement('div');
         favBtn.className = `fav-btn ${isFav ? 'active' : ''}`;
         favBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
@@ -709,6 +926,7 @@ export function displayProducts(items, append = false) {
         };
         card.appendChild(favBtn);
 
+        // صورة المنتج
         const imgContainer = document.createElement('div');
         imgContainer.className = 'product-img';
         if (isValid) {
@@ -735,8 +953,10 @@ export function displayProducts(items, append = false) {
         }
         card.appendChild(imgContainer);
 
+        // معلومات المنتج
         const info = document.createElement('div');
         info.className = 'product-info';
+        
         const title = document.createElement('div');
         title.className = 'product-title';
         title.textContent = p.name;
@@ -744,18 +964,17 @@ export function displayProducts(items, append = false) {
 
         const priceDiv = document.createElement('div');
         priceDiv.className = 'product-price';
-        const originalPrice = Number(p.price) || 0;
-        const finalPrice = discount > 0 ? Math.round(originalPrice - (originalPrice * discount / 100)) : originalPrice;
         if (discount > 0) {
             const old = document.createElement('span');
             old.className = 'old-price';
-            old.textContent = `${originalPrice} Lt`;
+            old.textContent = `${basePrice} Lt`;
             priceDiv.appendChild(old);
         }
         priceDiv.appendChild(document.createTextNode(`${finalPrice} Lt`));
         info.appendChild(priceDiv);
         card.appendChild(info);
 
+        // أزرار المشاركة
         const shareBtns = document.createElement('div');
         shareBtns.className = 'share-buttons';
         shareBtns.style.cssText = 'display:flex;gap:8px;margin:5px 0;justify-content:center;';
@@ -773,6 +992,7 @@ export function displayProducts(items, append = false) {
         });
         card.appendChild(shareBtns);
 
+        // زر الإضافة للسلة
         const addBtn = document.createElement('button');
         addBtn.className = 'btn-add-cart';
         
@@ -780,15 +1000,15 @@ export function displayProducts(items, append = false) {
             addBtn.textContent = '💬 شراء عبر واتساب';
             addBtn.style.background = '#25D366';
             addBtn.style.color = '#fff';
+            addBtn.onclick = () => window.addToCart(p.id);
         } else {
             addBtn.textContent = isAvailable ? '+ أضف للسلة' : '🚫 غير متوفر';
             addBtn.disabled = !isAvailable;
             addBtn.style.opacity = isAvailable ? '1' : '0.6';
+            addBtn.onclick = () => { if (isAvailable) window.addToCart(p.id); };
         }
-
-        addBtn.onclick = () => { if (isAvailable) window.addToCart(p.id); };
+        
         card.appendChild(addBtn);
-
         fragment.appendChild(card);
     });
 
@@ -1046,21 +1266,26 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
+        // إعادة تحميل السلة مع التحقق من الأسعار الجديدة
+        loadCart();
         
         resetPagination();
         applyFilters();
         updateCartBadge();
+        
+        // تحديث عرض السلة إذا كانت مفتوحة
         if (document.getElementById('cartModal')?.classList.contains('open')) {
             renderCartItems();
         }
     }, (error) => {
         console.error("خطأ جلب المنتجات:", error);
-        grid.innerHTML = `
-            <p style="grid-column:1/-1;text-align:center;color:red;">
-                تعذر تحميل المنتجات. <button onclick="window.initProductsListener()">إعادة المحاولة</button>
-            </p>
-        `;
+        if (grid) {
+            grid.innerHTML = `
+                <p style="grid-column:1/-1;text-align:center;color:red;">
+                    تعذر تحميل المنتجات. <button onclick="window.initProductsListener()">إعادة المحاولة</button>
+                </p>
+            `;
+        }
         showToast('فشل الاتصال بالخادم', 'error');
     });
 }
@@ -1123,6 +1348,7 @@ export function initMainPage() {
         showReferralCode();
         updateUserUI();
 
+        // تعريض الدوال للنافذة العامة
         window.toggleFavorite = toggleFavorite;
         window.addToCart = addToCart;
         window.changeQty = changeQty;

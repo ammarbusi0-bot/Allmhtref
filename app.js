@@ -1,5 +1,5 @@
 // ============================================================
-//  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate - Fixed & Optimized)
+//  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -58,7 +58,6 @@ let state = {
     isSubmitting: false,
     isDarkMode: false,
     user: null,
-    lastDoc: null,
     hasMore: true,
     isLoading: false,
     pageSize: 20,
@@ -102,14 +101,16 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية لحساب المخزون الفعلي
+// دالة مركزية لحساب المخزون الفعلي (تم تحسينها للتعامل مع جميع الحالات)
 export function getStock(product) {
     if (!product) return 0;
-    if (product.category === 'شحن ألعاب') return Infinity; 
+    // منتجات شحن الألعاب ليس لها مخزون محدد
+    if (product.category === 'شحن ألعاب') return Number.MAX_SAFE_INTEGER; // استخدم قيمة آمنة بدلاً من Infinity لتجنب مشاكل المقارنة
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
-    if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
-    return 99; // المخزون الافتراضي
+    const stock = Number(product.stock);
+    if (!isNaN(stock) && stock >= 0) return stock;
+    return 99; // قيمة افتراضية
 }
 
 export function closeWelcomeOverlay() {
@@ -251,44 +252,40 @@ export function shareReferral() {
 }
 
 // ============================================================
-//  إدارة السلة (مع معالجة آمنة للمنتجات المحملة مسبقاً)
+//  إدارة السلة (محسنة)
 // ============================================================
 function loadCart() {
     try {
         const saved = localStorage.getItem('alukhowah_cart');
         if (saved) {
             const rawCart = JSON.parse(saved);
-            if (!state.products || state.products.length === 0) {
-                state.cart = rawCart;
-                return;
-            }
             state.cart = rawCart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
-                if (!product) return item; // الاحتفاظ بالعنصر مؤقتاً لحين التحديث الكامل
+                if (!product) return null;
 
                 const stock = getStock(product);
-                if (stock <= 0 && product.category !== 'شحن ألعاب') return null;
+                if (stock <= 0) return null;
 
                 const discount = product.discount ? Number(product.discount) : 0;
                 const basePrice = Number(product.price) || 0;
                 const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
                 
                 let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
-                if (stock !== Infinity && safeQty > stock) {
-                    safeQty = stock;
-                }
+                if (safeQty > stock) safeQty = stock;
                 
                 return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
             }).filter(Boolean);
             saveCart();
         }
-    } catch (e) { state.cart = []; }
+    } catch (e) {
+        state.cart = [];
+    }
 }
 
 function saveCart() {
     try {
         localStorage.setItem('alukhowah_cart', JSON.stringify(state.cart));
-    } catch (e) { /* تجاهل أخطاء التخزين المحلي */ }
+    } catch (e) { /* تجاهل */ }
 }
 
 export function addToCart(id) {
@@ -356,12 +353,11 @@ export function changeQty(id, delta) {
     }
 
     const stock = getStock(product);
-    let safeDelta = Math.floor(delta);
-    const newQty = state.cart[idx].qty + safeDelta;
+    const newQty = state.cart[idx].qty + delta;
     
     if (newQty < 1) {
         state.cart.splice(idx, 1);
-    } else if (safeDelta > 0 && stock !== Infinity && newQty > stock) {
+    } else if (delta > 0 && newQty > stock) {
         showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
         return;
     } else {
@@ -429,14 +425,15 @@ function calculateFinalTotal() {
 }
 
 // ============================================================
-//  عرض السلة
+//  عرض السلة (محسنة)
 // ============================================================
 export function toggleCartModal() {
     const modal = document.getElementById('cartModal');
     if (!modal) return;
     modal.classList.toggle('open');
     if (modal.classList.contains('open')) {
-        updateDelivery();
+        // تحديث بيانات التوصيل أولاً، ثم عرض السلة
+        updateDelivery(false); // false لمنع إعادة العرض داخل الدالة
         renderCartItems();
     }
 }
@@ -486,7 +483,8 @@ export function renderCartItems() {
     }
 }
 
-export function updateDelivery() {
+// تحسين دالة التحديث: تتلقى معامل `render` لتحديد ما إذا كانت تعيد العرض أم لا
+export function updateDelivery(render = true) {
     const typeEl = document.getElementById('deliveryType');
     const kmContainer = document.getElementById('kmInputContainer');
     if (typeEl) {
@@ -494,8 +492,10 @@ export function updateDelivery() {
         if (kmContainer) kmContainer.style.display = state.deliveryType === 'outside' ? 'block' : 'none';
     }
     const kmEl = document.getElementById('deliveryKm');
-    if (kmEl) state.deliveryKm = Math.max(1, Math.floor(Math.abs(Number(kmEl.value) || 1)));
-    renderCartItems();
+    if (kmEl) {
+        state.deliveryKm = Math.max(1, Math.floor(Math.abs(Number(kmEl.value) || 1)));
+    }
+    if (render) renderCartItems();
 }
 
 // ============================================================
@@ -505,9 +505,15 @@ export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
     if (!form) return;
 
+    // مستمع لتغيير نوع التوصيل (بدلاً من الاعتماد على onchange في HTML)
+    const deliveryTypeEl = document.getElementById('deliveryType');
+    if (deliveryTypeEl) {
+        deliveryTypeEl.addEventListener('change', () => updateDelivery(true));
+    }
+
     const kmEl = document.getElementById('deliveryKm');
     if (kmEl) {
-        kmEl.addEventListener('input', updateDelivery);
+        kmEl.addEventListener('input', () => updateDelivery(true));
     }
 
     form.addEventListener('submit', async function(e) {
@@ -658,7 +664,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات
+//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -819,7 +825,6 @@ export function filterByCategory(cat, element) {
 }
 
 function resetPagination() {
-    state.lastDoc = null;
     state.hasMore = true;
     state.filteredProducts = [];
     window._displayedCount = 0;
@@ -1047,7 +1052,8 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart();
+        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
+        
         resetPagination();
         applyFilters();
         updateCartBadge();

@@ -1,6 +1,5 @@
 // ============================================================
 //  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
-//  تم التحسين: عرض الصور، رفع الصور، الأداء، الاستقرار
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -26,7 +25,7 @@ import {
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase ----------
+// ---------- إعدادات Firebase (بدون تغييرات أمنية كما طلبت) ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -59,6 +58,7 @@ let state = {
     isSubmitting: false,
     isDarkMode: false,
     user: null,
+    lastDoc: null,
     hasMore: true,
     isLoading: false,
     pageSize: 20,
@@ -102,15 +102,14 @@ export function showToast(message, type = 'info', duration = 3500) {
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية لحساب المخزون الفعلي
+// دالة مركزية لحساب المخزون الفعلي (لحل مشاكل لوحة التحكم)
 export function getStock(product) {
     if (!product) return 0;
-    if (product.category === 'شحن ألعاب') return Number.MAX_SAFE_INTEGER;
+    if (product.category === 'شحن ألعاب') return Infinity; 
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
-    const stock = Number(product.stock);
-    if (!isNaN(stock) && stock >= 0) return stock;
-    return 99;
+    if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
+    return 99; // المخزون الافتراضي
 }
 
 export function closeWelcomeOverlay() {
@@ -135,20 +134,16 @@ export function getUser() {
 }
 
 export function setUser(userData) {
-    try {
-        localStorage.setItem('alukhowah_user', JSON.stringify(userData));
-        state.user = userData;
-        updateUserUI();
-    } catch (e) { console.warn('setUser error:', e); }
+    localStorage.setItem('alukhowah_user', JSON.stringify(userData));
+    state.user = userData;
+    updateUserUI();
 }
 
 export function logoutUser() {
-    try {
-        localStorage.removeItem('alukhowah_user');
-        state.user = null;
-        updateUserUI();
-        showToast('تم تسجيل الخروج', 'info');
-    } catch (e) { console.warn('logoutUser error:', e); }
+    localStorage.removeItem('alukhowah_user');
+    state.user = null;
+    updateUserUI();
+    showToast('تم تسجيل الخروج', 'info');
 }
 
 export function updateUserUI() {
@@ -256,7 +251,7 @@ export function shareReferral() {
 }
 
 // ============================================================
-//  إدارة السلة (محسنة)
+//  إدارة السلة
 // ============================================================
 function loadCart() {
     try {
@@ -265,26 +260,25 @@ function loadCart() {
             const rawCart = JSON.parse(saved);
             state.cart = rawCart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
-                if (!product) return null;
+                if (!product) return null; // إزالة المنتج إذا تم حذفه من قاعدة البيانات
 
                 const stock = getStock(product);
-                if (stock <= 0) return null;
+                if (stock <= 0) return null; // إزالة المنتج إذا نفذ من المخزون تماماً
 
                 const discount = product.discount ? Number(product.discount) : 0;
                 const basePrice = Number(product.price) || 0;
                 const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
                 
                 let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
-                if (safeQty > stock) safeQty = stock;
+                if (safeQty > stock) {
+                    safeQty = stock; // تقييد الكمية لتناسب المخزون الحالي
+                }
                 
                 return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
-            }).filter(Boolean);
+            }).filter(Boolean); // فلترة وإزالة المنتجات الفارغة
             saveCart();
         }
-    } catch (e) {
-        state.cart = [];
-        saveCart();
-    }
+    } catch (e) { state.cart = []; }
 }
 
 function saveCart() {
@@ -358,11 +352,12 @@ export function changeQty(id, delta) {
     }
 
     const stock = getStock(product);
-    const newQty = state.cart[idx].qty + delta;
+    let safeDelta = Math.floor(delta);
+    const newQty = state.cart[idx].qty + safeDelta;
     
     if (newQty < 1) {
         state.cart.splice(idx, 1);
-    } else if (delta > 0 && newQty > stock) {
+    } else if (safeDelta > 0 && newQty > stock) {
         showToast(`⚠️ لا يمكن زيادة الكمية عن ${stock}`, 'error');
         return;
     } else {
@@ -430,14 +425,14 @@ function calculateFinalTotal() {
 }
 
 // ============================================================
-//  عرض السلة (محسنة)
+//  عرض السلة
 // ============================================================
 export function toggleCartModal() {
     const modal = document.getElementById('cartModal');
     if (!modal) return;
     modal.classList.toggle('open');
     if (modal.classList.contains('open')) {
-        updateDelivery(false);
+        updateDelivery();
         renderCartItems();
     }
 }
@@ -487,7 +482,7 @@ export function renderCartItems() {
     }
 }
 
-export function updateDelivery(render = true) {
+export function updateDelivery() {
     const typeEl = document.getElementById('deliveryType');
     const kmContainer = document.getElementById('kmInputContainer');
     if (typeEl) {
@@ -495,10 +490,8 @@ export function updateDelivery(render = true) {
         if (kmContainer) kmContainer.style.display = state.deliveryType === 'outside' ? 'block' : 'none';
     }
     const kmEl = document.getElementById('deliveryKm');
-    if (kmEl) {
-        state.deliveryKm = Math.max(1, Math.floor(Math.abs(Number(kmEl.value) || 1)));
-    }
-    if (render) renderCartItems();
+    if (kmEl) state.deliveryKm = Math.max(1, Math.floor(Math.abs(Number(kmEl.value) || 1)));
+    renderCartItems();
 }
 
 // ============================================================
@@ -508,14 +501,9 @@ export function initCheckoutForm() {
     const form = document.getElementById('checkoutForm');
     if (!form) return;
 
-    const deliveryTypeEl = document.getElementById('deliveryType');
-    if (deliveryTypeEl) {
-        deliveryTypeEl.addEventListener('change', () => updateDelivery(true));
-    }
-
     const kmEl = document.getElementById('deliveryKm');
     if (kmEl) {
-        kmEl.addEventListener('input', () => updateDelivery(true));
+        kmEl.addEventListener('input', updateDelivery);
     }
 
     form.addEventListener('submit', async function(e) {
@@ -553,6 +541,7 @@ export function initCheckoutForm() {
         submitBtn.disabled = true;
 
         try {
+            // المعاملة محصنة من الإعادة العشوائية (Retries)
             const { verifiedItems, verifiedItemsTotal } = await runTransaction(db, async (transaction) => {
                 let tVerifiedItems = [];
                 let tVerifiedItemsTotal = 0;
@@ -592,6 +581,7 @@ export function initCheckoutForm() {
                     }
                 }
 
+                // تنفيذ تحديث المخزون
                 for (const u of tUpdates) {
                     transaction.update(u.ref, { stock: u.newStock });
                 }
@@ -637,6 +627,7 @@ export function initCheckoutForm() {
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
             if (state.user) {
+                // إصلاح مشكلة Timestamp في LocalStorage
                 const localOrderData = { ...orderData, createdAt: new Date().toISOString() };
                 state.user.orders = state.user.orders || [];
                 state.user.orders.push({ id: docRef.id, ...localOrderData });
@@ -666,7 +657,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات (معالجة متطورة لتوفر المخزون وتحسين الصور)
+//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -685,9 +676,8 @@ export function displayProducts(items, append = false) {
     items.forEach(p => {
         const isFav = favs.includes(String(p.id));
         const imgUrl = String(p.imageUrl || '').trim();
-        // تحسين فحص الرابط: يعتبر صالحاً إذا بدأ بـ http أو كان base64
-        const isValid = imgUrl && (imgUrl.startsWith('http') || imgUrl.startsWith('data:image'));
-
+        const isValid = imgUrl && imgUrl !== 'null' && imgUrl !== 'undefined';
+        
         const stock = getStock(p);
         const isGameCharge = p.category === 'شحن ألعاب';
         const isAvailable = isGameCharge || stock > 0;
@@ -696,7 +686,6 @@ export function displayProducts(items, append = false) {
         card.className = 'product-card';
         card.dataset.id = p.id;
 
-        // شارة الخصم
         const discount = p.discount ? Number(p.discount) : 0;
         if (discount > 0) {
             const badge = document.createElement('span');
@@ -705,14 +694,12 @@ export function displayProducts(items, append = false) {
             card.appendChild(badge);
         }
 
-        // شارة المخزون
         const stockBadge = document.createElement('span');
         stockBadge.className = `stock-badge ${isAvailable ? 'in-stock' : 'out-of-stock'}`;
         stockBadge.textContent = isGameCharge ? '🎮 شحن فورّي' : (isAvailable ? `🟢 متوفر (${stock})` : '🔴 غير متوفر');
         stockBadge.style.cssText = 'position:absolute;top:40px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;z-index:2;';
         card.appendChild(stockBadge);
 
-        // زر المفضلة
         const favBtn = document.createElement('div');
         favBtn.className = `fav-btn ${isFav ? 'active' : ''}`;
         favBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
@@ -722,24 +709,17 @@ export function displayProducts(items, append = false) {
         };
         card.appendChild(favBtn);
 
-        // حاوية الصورة
         const imgContainer = document.createElement('div');
         imgContainer.className = 'product-img';
-
         if (isValid) {
             const img = document.createElement('img');
             img.src = imgUrl;
             img.alt = escapeHTML(p.name);
             img.loading = 'lazy';
-            img.decode = 'async'; // تحسين التحميل
-
-            // معالج الخطأ المحسّن
-            img.onerror = function() {
-                this.style.display = 'none';
-                const fallback = this.nextElementSibling;
-                if (fallback) fallback.style.display = 'flex';
+            img.onerror = () => {
+                img.style.display = 'none';
+                if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
             };
-
             imgContainer.appendChild(img);
 
             const fallback = document.createElement('div');
@@ -755,7 +735,6 @@ export function displayProducts(items, append = false) {
         }
         card.appendChild(imgContainer);
 
-        // معلومات المنتج
         const info = document.createElement('div');
         info.className = 'product-info';
         const title = document.createElement('div');
@@ -777,7 +756,6 @@ export function displayProducts(items, append = false) {
         info.appendChild(priceDiv);
         card.appendChild(info);
 
-        // أزرار المشاركة
         const shareBtns = document.createElement('div');
         shareBtns.className = 'share-buttons';
         shareBtns.style.cssText = 'display:flex;gap:8px;margin:5px 0;justify-content:center;';
@@ -795,7 +773,6 @@ export function displayProducts(items, append = false) {
         });
         card.appendChild(shareBtns);
 
-        // زر الإضافة للسلة / واتساب
         const addBtn = document.createElement('button');
         addBtn.className = 'btn-add-cart';
         
@@ -841,6 +818,7 @@ export function filterByCategory(cat, element) {
 }
 
 function resetPagination() {
+    state.lastDoc = null;
     state.hasMore = true;
     state.filteredProducts = [];
     window._displayedCount = 0;
@@ -988,7 +966,7 @@ export function shareProduct(platform, productName, productPrice) {
 }
 
 // ============================================================
-//  رفع الصور (محسّن مع إعادة المحاولة)
+//  رفع الصور
 // ============================================================
 function compressImage(file, maxWidth = 300, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -1021,62 +999,33 @@ function compressImage(file, maxWidth = 300, quality = 0.7) {
     });
 }
 
-export async function uploadImageToImgBB(fileOrInput, retries = 2) {
+export async function uploadImageToImgBB(fileOrInput) {
     let file = null;
     if (fileOrInput instanceof File) file = fileOrInput;
     else if (fileOrInput?.files?.[0]) file = fileOrInput.files[0];
     else return '';
 
-    let lastError = null;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const compressedBase64 = await compressImage(file, 300, 0.7);
-            if (!compressedBase64) return '';
-
-            const blob = await fetch(compressedBase64).then(r => r.blob());
-            const formData = new FormData();
-            formData.append('image', blob, 'product.jpg');
-
-            const myKey = "42b6820dc31a25d977adefc41f83aa70";
-            // استخدام AbortController للتحكم في المهلة
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
-                method: 'POST',
-                body: formData,
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data?.data?.url) {
-                    return data.data.url;
-                } else {
-                    throw new Error('استجابة غير صالحة من ImgBB');
-                }
-            } else {
-                throw new Error(`HTTP ${res.status}`);
-            }
-        } catch (error) {
-            lastError = error;
-            console.warn(`محاولة رفع الصورة ${attempt+1} فشلت:`, error.message);
-            if (attempt < retries) {
-                // انتظار قبل إعادة المحاولة
-                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-            }
-        }
-    }
-
-    // إذا فشلت جميع المحاولات، نعود لاستخدام Base64 كحل بديل
     try {
-        const base64 = await compressImage(file, 300, 0.7);
-        return base64 || '';
+        const compressedBase64 = await compressImage(file, 300, 0.7);
+        if (!compressedBase64) return '';
+
+        const blob = await fetch(compressedBase64).then(r => r.blob());
+        const formData = new FormData();
+        formData.append('image', blob, 'product.jpg');
+
+        const myKey = "42b6820dc31a25d977adefc41f83aa70";
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${myKey}`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data?.data?.url) return data.data.url;
+        }
     } catch (e) {
-        console.error('فشل حتى في الضغط المحلي:', e);
-        return '';
+        console.warn("ImgBB فشل، نستخدم Base64", e);
     }
+    return await compressImage(file, 300, 0.7);
 }
 
 // ============================================================
@@ -1097,7 +1046,7 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart();
+        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
         
         resetPagination();
         applyFilters();
@@ -1205,23 +1154,14 @@ export function initMainPage() {
     }
 }
 
-// منع التعارض مع لوحة التحكم (تحسين)
-function startApp() {
-    if (document.getElementById('adminMainContent')) {
-        console.log('لوحة التحكم مكتشفة، نمنع تهيئة الصفحة الرئيسية');
-        return;
-    }
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMainPage);
+} else {
     initMainPage();
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startApp);
-} else {
-    startApp();
-}
-
 // ============================================================
-//  تصدير العناصر الأساسية (مع إضافة الدوال الجديدة)
+//  تصدير العناصر الأساسية
 // ============================================================
 export {
     db,
@@ -1242,9 +1182,5 @@ export {
     updateDoc,
     arrayUnion,
     arrayRemove,
-    runTransaction,
-    escapeHTML,
-    uploadImageToImgBB,
-    toggleDarkMode,
-    loadDarkModePreference
+    runTransaction
 };

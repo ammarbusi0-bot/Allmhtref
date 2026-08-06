@@ -1,6 +1,7 @@
 // ============================================================
 //  المتجر الأخوي - النسخة الأسطورية الشاملة والآمنة (Pro Max Ultimate)
 //  تم التحسين لمنع التلاعب بالأسعار والخصومات
+//  تم إضافة دعم الأقسام من Firestore ونموذج تسجيل أنيق
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -114,6 +115,11 @@ export function validatePhone(phone) {
     if (!phone) return false;
     const cleaned = phone.replace(/[^0-9+]/g, '');
     return /^[0-9+]{7,15}$/.test(cleaned);
+}
+
+export function validateTurkishPhone(phone) {
+    // رقم تركي يبدأ بـ 05 ويتكون من 11 رقم
+    return /^05[0-9]{9}$/.test(phone);
 }
 
 export function validateAddress(address) {
@@ -259,20 +265,88 @@ export function updateUserUI() {
     }
 }
 
+// ============================================================
+//  نافذة تسجيل الدخول الأنيقة (Modal)
+// ============================================================
 export function showLoginModal() {
-    const phone = prompt('أدخل رقم الهاتف:');
-    if (!phone || !validatePhone(phone)) {
-        showToast('رقم هاتف غير صحيح', 'error');
-        return;
+    let modal = document.getElementById('loginModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'loginModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-box" style="max-width:450px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;">📝 بيانات التوصيل والخصم</h3>
+                    <button class="close-btn" onclick="document.getElementById('loginModal').style.display='none'" style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--text);">✖</button>
+                </div>
+                <form id="userInfoForm" style="margin-top:15px;">
+                    <div class="form-group">
+                        <label>رقم الهاتف (تركي)</label>
+                        <input type="tel" id="regPhone" placeholder="05xxxxxxxxx" required pattern="05[0-9]{9}" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
+                        <small style="color:red;display:none;" id="phoneError">صيغة الهاتف غير صحيحة (يجب أن يبدأ بـ 05 ويتكون من 11 رقم)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>الاسم الأول (بالعربية)</label>
+                        <input type="text" id="regFirstName" required style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
+                    </div>
+                    <div class="form-group">
+                        <label>اسم العائلة (بالعربية)</label>
+                        <input type="text" id="regLastName" required style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
+                    </div>
+                    <div class="form-group">
+                        <label>الحي</label>
+                        <input type="text" id="regDistrict" required style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
+                    </div>
+                    <div class="form-group">
+                        <label>الشارع</label>
+                        <input type="text" id="regStreet" required style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
+                    </div>
+                    <div class="form-group">
+                        <label>رقم المبنى</label>
+                        <input type="text" id="regBuildingNo" required style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
+                    </div>
+                    <button type="submit" class="btn btn-block" style="margin-top:10px;">💾 حفظ البيانات</button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // معالج الإرسال
+        modal.querySelector('#userInfoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const phone = document.getElementById('regPhone').value.trim();
+            const firstName = document.getElementById('regFirstName').value.trim();
+            const lastName = document.getElementById('regLastName').value.trim();
+            const district = document.getElementById('regDistrict').value.trim();
+            const street = document.getElementById('regStreet').value.trim();
+            const buildingNo = document.getElementById('regBuildingNo').value.trim();
+
+            if (!validateTurkishPhone(phone)) {
+                document.getElementById('phoneError').style.display = 'block';
+                return;
+            }
+            // إخفاء الخطأ
+            document.getElementById('phoneError').style.display = 'none';
+            
+            // تجميع العنوان
+            const address = `${district} - ${street} - رقم ${buildingNo}`;
+            setUser({ phone, name: `${firstName} ${lastName}`, address, orders: [] });
+            modal.style.display = 'none';
+            showToast(`مرحباً ${firstName}! تم حفظ بياناتك.`, 'success');
+        });
+
+        // إخفاء رسالة الخطأ عند الكتابة
+        document.getElementById('regPhone').addEventListener('input', function() {
+            document.getElementById('phoneError').style.display = 'none';
+        });
     }
-    const name = prompt('أدخل اسمك:') || 'مستخدم';
-    const address = prompt('أدخل عنوانك:') || '';
-    setUser({ phone, name, address, orders: [] });
-    showToast(`مرحباً ${name}`, 'success');
+    modal.style.display = 'flex';
 }
 
 // ============================================================
 //  نظام الدعوة والخصم (محسّن ضد التلاعب)
+//  تعديل: الخصم لا يُمنح إلا للمستخدمين المسجلين دخولهم
 // ============================================================
 export function getMyReferralCode() {
     let code = localStorage.getItem('myReferralCode');
@@ -298,17 +372,19 @@ export function handleReferral() {
         localStorage.setItem('invitedBy', ref);
         state.invitedBy = ref;
         setTimeout(() => {
-            showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر!', 'success', 5000);
+            showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر! (بعد تسجيل الدخول)', 'success', 5000);
         }, 500);
     }
 }
 
 /**
- * حساب خصم الإحالة المستحق (مع سقف أعلى)
+ * حساب خصم الإحالة المستحق (مع سقف أعلى) - يشترط وجود مستخدم مسجل
  * @param {number} itemsTotal - إجمالي قيمة المنتجات
  * @returns {number} قيمة الخصم
  */
 export function getReferralDiscount(itemsTotal) {
+    // لا يوجد خصم إذا لم يسجل المستخدم دخوله
+    if (!state.user) return 0;
     if (itemsTotal < SECURITY.MIN_ORDER_FOR_REFERRAL_DISCOUNT) return 0;
     if (!localStorage.getItem('invitedBy')) return 0;
     if (localStorage.getItem('discountApplied') === 'true') return 0;
@@ -343,7 +419,7 @@ export function showReferralCode() {
                 <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
             </div>
         </div>
-        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة ${SECURITY.MIN_ORDER_FOR_REFERRAL_DISCOUNT} ل.س أو أكثر (حد أقصى ${SECURITY.MAX_REFERRAL_DISCOUNT} ل.س)</p>
+        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة ${SECURITY.MIN_ORDER_FOR_REFERRAL_DISCOUNT} ل.س أو أكثر (حد أقصى ${SECURITY.MAX_REFERRAL_DISCOUNT} ل.س) - يجب تسجيل الدخول</p>
     `;
 }
 
@@ -521,7 +597,7 @@ function calculateFinalTotal() {
         return sum + (finalPrice * qty);
     }, 0);
 
-    // خصم الإحالة
+    // خصم الإحالة (فقط للمسجلين)
     const referralDiscount = getReferralDiscount(itemsTotal);
 
     // الخصم الذكي حسب قيمة الطلب
@@ -622,10 +698,14 @@ export function renderCartItems() {
     if (summaryDiv) {
         summaryDiv.style.display = 'block';
         const calc = calculateFinalTotal();
+        let referralMsg = '';
+        if (!state.user && localStorage.getItem('invitedBy')) {
+            referralMsg = '<div class="summary-line" style="color:#f39c12;">⚠️ سجّل الدخول لتحصل على خصم الإحالة (10%)</div>';
+        }
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
             ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم الكمية (${calc.smartDiscountPercent}%):</span><span>-${calc.smartDiscountAmount} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم كود الدعوة (${SECURITY.REFERRAL_DISCOUNT_PERCENT}%):</span><span>-${calc.referralDiscount} Lt</span></div>` : ''}
+            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم كود الدعوة (${SECURITY.REFERRAL_DISCOUNT_PERCENT}%):</span><span>-${calc.referralDiscount} Lt</span></div>` : referralMsg}
             <div class="summary-line"><span>🚚 التوصيل (${state.deliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + state.deliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${calc.finalTotal} Lt</span></div>
         `;
@@ -679,19 +759,26 @@ export function initCheckoutForm() {
             return;
         }
 
+        // يجب تسجيل الدخول لإتمام الطلب (لضمان صحة بيانات التوصيل والخصم)
+        if (!state.user) {
+            showToast('يجب تسجيل الدخول قبل إرسال الطلب', 'error');
+            showLoginModal();
+            return;
+        }
+
         const submitBtn = document.getElementById('submitBtn');
         if (!submitBtn) return;
 
-        const phone = document.getElementById('userPhone')?.value.trim() || '';
-        const address = document.getElementById('userAddress')?.value.trim() || '';
+        const phone = state.user.phone; // استخدام الهاتف المسجل
+        const address = state.user.address;
 
         // التحقق من صحة المدخلات
-        if (!validatePhone(phone)) {
-            showToast('رقم الهاتف غير صحيح', 'error');
+        if (!validateTurkishPhone(phone)) {
+            showToast('رقم الهاتف غير صحيح (يجب أن يبدأ بـ 05 ويتكون من 11 رقم)', 'error');
             return;
         }
         if (!validateAddress(address)) {
-            showToast('العنوان قصير جداً (أقل من 5 أحرف)', 'error');
+            showToast('العنوان غير مكتمل (الرجاء تحديث بياناتك من خلال تسجيل الدخول)', 'error');
             return;
         }
 
@@ -763,7 +850,7 @@ export function initCheckoutForm() {
             // حساب الخصومات النهائية
             const { verifiedItems, verifiedItemsTotal } = result;
             
-            // خصم الإحالة
+            // خصم الإحالة (فقط للمسجلين)
             const referralDiscount = getReferralDiscount(verifiedItemsTotal);
             
             // الخصم الذكي
@@ -812,7 +899,8 @@ export function initCheckoutForm() {
                 status: 'جديد',
                 date: new Date().toLocaleString('ar-EG'),
                 createdAt: serverTimestamp(),
-                userId: state.user?.phone || 'guest',
+                userId: state.user.phone,
+                userName: state.user.name,
                 // تخزين الكود المستخدم للتدقيق
                 appliedReferralCode: referralDiscount > 0 ? (localStorage.getItem('invitedBy') || '') : '',
                 // توقيع أمني بسيط
@@ -1290,6 +1378,30 @@ export function initProductsListener() {
     });
 }
 
+// ============================================================
+//  تحميل الأقسام من Firestore للزوار
+// ============================================================
+export async function loadCategoriesForVisitors() {
+    const container = document.getElementById('categoryFilters');
+    if (!container) return;
+    
+    try {
+        const snap = await getDocs(collection(db, "categories"));
+        const cats = snap.docs.map(d => d.data().name);
+        
+        container.innerHTML = `<button class="cat-chip active" onclick="window.filterByCategory('all', this)">الكل</button>`;
+        cats.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'cat-chip';
+            btn.textContent = cat;
+            btn.onclick = function() { window.filterByCategory(cat, this); };
+            container.appendChild(btn);
+        });
+    } catch (error) {
+        console.error("خطأ في تحميل الأقسام:", error);
+    }
+}
+
 export function toggleInfoModal() {
     const modal = document.getElementById('infoModal');
     if (modal) modal.classList.toggle('open');
@@ -1347,6 +1459,9 @@ export function initMainPage() {
         handleReferral();
         showReferralCode();
         updateUserUI();
+        
+        // تحميل الأقسام من Firestore
+        loadCategoriesForVisitors();
 
         // تعريض الدوال للنافذة العامة
         window.toggleFavorite = toggleFavorite;

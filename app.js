@@ -62,7 +62,6 @@ let state = {
     hasMore: true,
     isLoading: false,
     pageSize: 20
-    // تمت إزالة جميع خصائص الإحالة والخصم
 };
 
 // ============================================================
@@ -95,7 +94,6 @@ export function showToast(message, type = 'info', duration = 3500) {
     toastMsg.textContent = message;
     toast.className = `toast ${type}`;
     toast.style.display = 'flex';
-    // إضافة تأثير حركي خفيف (موجود بـ CSS)
     clearTimeout(toast._hideTimer);
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
@@ -170,7 +168,7 @@ export function showLoginModal() {
 }
 
 // ============================================================
-//  إدارة السلة (بدون أي إشارة لنظام الدعوة)
+//  إدارة السلة
 // ============================================================
 function loadCart() {
     try {
@@ -302,7 +300,7 @@ export function updateCartBadge() {
 }
 
 // ============================================================
-//  حساب الإجمالي النهائي (بدون كود دعوة)
+//  حساب الإجمالي النهائي
 // ============================================================
 function calculateFinalTotal() {
     const itemsTotal = state.cart.reduce((sum, item) => {
@@ -310,7 +308,6 @@ function calculateFinalTotal() {
         return sum + (item.price * qty);
     }, 0);
 
-    // خصم الكمية فقط (بدون كود دعوة)
     let smartDiscountPercent = 0;
     if (itemsTotal >= 1000) smartDiscountPercent = 10;
     else if (itemsTotal >= 500) smartDiscountPercent = 5;
@@ -500,7 +497,6 @@ export function initCheckoutForm() {
                 return { verifiedItems: tVerifiedItems, verifiedItemsTotal: tVerifiedItemsTotal };
             });
 
-            // حساب الخصومات بدون إحالة
             let smartDiscountPercent = 0;
             if (verifiedItemsTotal >= 1000) smartDiscountPercent = 10;
             else if (verifiedItemsTotal >= 500) smartDiscountPercent = 5;
@@ -561,7 +557,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات (مع تحسينات مظهرية وأداء للصور)
+//  عرض المنتجات
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -613,11 +609,9 @@ export function displayProducts(items, append = false) {
         };
         card.appendChild(favBtn);
 
-        // تحسين حاوية الصورة مع تأثير fade-in
         const imgContainer = document.createElement('div');
         imgContainer.className = 'product-img';
         
-        // عنصر placeholder يظهر أثناء التحميل
         const placeholder = document.createElement('div');
         placeholder.className = 'img-placeholder';
         placeholder.innerHTML = '<i class="fa-solid fa-image"></i>';
@@ -671,7 +665,6 @@ export function displayProducts(items, append = false) {
         info.appendChild(priceDiv);
         card.appendChild(info);
 
-        // أزرار المشاركة (بدون كود دعوة)
         const shareBtns = document.createElement('div');
         shareBtns.className = 'share-buttons';
         shareBtns.style.cssText = 'display:flex;gap:8px;margin:5px 0;justify-content:center;';
@@ -861,7 +854,7 @@ export function loadDarkModePreference() {
 }
 
 // ============================================================
-//  المشاركة (بدون كود دعوة)
+//  المشاركة
 // ============================================================
 export function shareProduct(platform, productName, productPrice) {
     const message = `🛍️ ${productName}\n💰 ${productPrice}\n📱 ${window.location.href}`;
@@ -986,23 +979,38 @@ export function toggleInfoModal() {
 }
 
 // ============================================================
-//  التعامل مع الصوت (إصلاح وتحسين)
+//  التعامل مع الصوت والدخول (تم الإصلاح)
 // ============================================================
 function initAudio() {
     const bgMusic = document.getElementById('bgMusic');
     const toggleMusicBtn = document.getElementById('toggleMusicBtn');
     const musicIcon = document.getElementById('musicIcon');
+    const enterBtn = document.getElementById('enterBtn');
+
+    // تفعيل زر الدخول للعمل بشكل مؤكد بغض النظر عن وجود عنصر الصوت
+    if (enterBtn) {
+        enterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeWelcomeOverlay();
+            if (bgMusic) {
+                bgMusic.muted = false;
+                bgMusic.play().then(() => {
+                    if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
+                }).catch(() => {
+                    bgMusic.muted = true;
+                });
+            }
+        });
+    }
 
     if (!bgMusic) return;
 
-    // إعدادات افتراضية: الصوت متوقف مؤقتاً وجاهز للتشغيل عند أول تفاعل
     bgMusic.volume = 0.3;
-    bgMusic.muted = true; // مكتوم حتى يضغط المستخدم على زر الدخول أو زر الصوت
+    bgMusic.muted = true;
 
     const playPromise = () => {
         bgMusic.muted = false;
         return bgMusic.play().catch(() => {
-            // ربما المتصفح يمنع التشغيل التلقائي، نعيد الكتم ولا نعرض خطأ
             bgMusic.muted = true;
         });
     };
@@ -1022,17 +1030,6 @@ function initAudio() {
         });
     }
 
-    // زر الدخول (إن وجد) يقوم بتشغيل الموسيقى بعد تفعيلها
-    const enterBtn = document.getElementById('enterBtn');
-    if (enterBtn) {
-        enterBtn.addEventListener('click', () => {
-            playPromise().then(() => {
-                if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
-            }).catch(() => {});
-        });
-    }
-
-    // معالجة خطأ تحميل ملف الصوت
     bgMusic.addEventListener('error', () => {
         console.warn('تعذر تحميل ملف الصوت، سيتم تعطيل الموسيقى.');
         if (toggleMusicBtn) toggleMusicBtn.style.display = 'none';
@@ -1047,16 +1044,13 @@ export function initMainPage() {
     try {
         loadDarkModePreference();
 
-        // بدلاً من كود الدعوة، نخفي الحاوية أو نعرض رسالة ترحيبية بسيطة
         const referralContainer = document.getElementById('referralContainer');
         if (referralContainer) {
             referralContainer.innerHTML = '<p style="text-align:center;color:#888;margin:10px 0;">👋 أهلاً بك في متجر الأخوة</p>';
         }
 
-        // بدء نظام الصوت المحسن
         initAudio();
 
-        // إخفاء شاشة الترحيب تلقائياً بعد 2 ثانية
         setTimeout(() => {
             closeWelcomeOverlay();
         }, 2000);
@@ -1072,7 +1066,6 @@ export function initMainPage() {
         initCheckoutForm();
         updateUserUI();
 
-        // تصدير الدوال إلى window
         window.toggleFavorite = toggleFavorite;
         window.addToCart = addToCart;
         window.changeQty = changeQty;

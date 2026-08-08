@@ -25,7 +25,7 @@ import {
     runTransaction
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ---------- إعدادات Firebase (بدون تغييرات أمنية كما طلبت) ----------
+// ---------- إعدادات Firebase ----------
 const firebaseConfig = {
     apiKey: "AIzaSyBfJthCuyCOQtyjUFtGOqDD5MhAlAKmBJU",
     authDomain: "market-30cd6.firebaseapp.com",
@@ -61,11 +61,8 @@ let state = {
     lastDoc: null,
     hasMore: true,
     isLoading: false,
-    pageSize: 20,
-    referralCode: '',
-    discountApplied: false,
-    invitedBy: null,
-    referralPoints: {}
+    pageSize: 20
+    // تمت إزالة جميع خصائص الإحالة والخصم
 };
 
 // ============================================================
@@ -98,18 +95,19 @@ export function showToast(message, type = 'info', duration = 3500) {
     toastMsg.textContent = message;
     toast.className = `toast ${type}`;
     toast.style.display = 'flex';
+    // إضافة تأثير حركي خفيف (موجود بـ CSS)
     clearTimeout(toast._hideTimer);
     toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, duration);
 }
 
-// دالة مركزية لحساب المخزون الفعلي (لحل مشاكل لوحة التحكم)
+// دالة مركزية لحساب المخزون الفعلي
 export function getStock(product) {
     if (!product) return 0;
     if (product.category === 'شحن ألعاب') return Infinity; 
     const explicitUnavailability = (product.isAvailable === false || product.available === false || product.inStock === false);
     if (explicitUnavailability) return 0;
     if (product.stock !== undefined && product.stock !== null && product.stock !== '') return Number(product.stock);
-    return 99; // المخزون الافتراضي
+    return 99;
 }
 
 export function closeWelcomeOverlay() {
@@ -172,86 +170,7 @@ export function showLoginModal() {
 }
 
 // ============================================================
-//  نظام الدعوة والخصم
-// ============================================================
-export function getMyReferralCode() {
-    let code = localStorage.getItem('myReferralCode');
-    if (!code) {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        code = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-        localStorage.setItem('myReferralCode', code);
-    }
-    return code;
-}
-
-export function getInviteLink() {
-    return `${window.location.origin}${window.location.pathname}?ref=${getMyReferralCode()}`;
-}
-
-export function handleReferral() {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    const myCode = getMyReferralCode();
-    if (ref && ref !== myCode && !localStorage.getItem('referralUsed')) {
-        localStorage.setItem('invitedBy', ref);
-        state.invitedBy = ref;
-        setTimeout(() => {
-            showToast('🎉 تم تفعيل كود الخصم 10% على طلبك الأول بقيمة 100 ليرة أو أكثر!', 'success', 5000);
-        }, 500);
-    }
-}
-
-export function getReferralDiscount(total) {
-    if (total < 100) return 0;
-    if (!localStorage.getItem('invitedBy')) return 0;
-    if (localStorage.getItem('discountApplied') === 'true') return 0;
-    return Math.round(total * 0.10);
-}
-
-export function applyReferralDiscount(total) {
-    const discount = getReferralDiscount(total);
-    if (discount > 0) {
-        localStorage.setItem('discountApplied', 'true');
-        localStorage.setItem('referralUsed', 'true');
-        state.discountApplied = true;
-    }
-    return discount;
-}
-
-export function showReferralCode() {
-    const container = document.getElementById('referralContainer');
-    if (!container) return;
-    const code = getMyReferralCode();
-    container.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-            <div>
-                <span style="font-weight:bold;">🎁 كود الخصم: </span>
-                <strong style="font-size:20px;color:#ff6b6b;letter-spacing:2px;background:var(--input-bg, #eee);padding:4px 12px;border-radius:6px;">${escapeHTML(code)}</strong>
-            </div>
-            <div style="display:flex;gap:8px;">
-                <button onclick="window.copyReferralCode()" class="btn-secondary">📋 نسخ</button>
-                <button onclick="window.shareReferral()" class="btn-primary">📱 مشاركة</button>
-            </div>
-        </div>
-        <p style="font-size:12px;color:#888;margin-top:5px;">شارك الكود واحصل على خصم 10% لأول طلب بقيمة 100 ل.س أو أكثر</p>
-    `;
-}
-
-export function copyReferralCode() {
-    const code = getMyReferralCode();
-    navigator.clipboard.writeText(code)
-        .then(() => showToast('✅ تم نسخ الكود: ' + code, 'success'))
-        .catch(() => showToast('فشل النسخ، حاول يدوياً', 'error'));
-}
-
-export function shareReferral() {
-    const code = getMyReferralCode();
-    const message = `🎁 استخدم كود الخصم هذا في متجر ماركت الأخوة واحصل على خصم 10%: ${code}\n📱 ${window.location.href}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-}
-
-// ============================================================
-//  إدارة السلة
+//  إدارة السلة (بدون أي إشارة لنظام الدعوة)
 // ============================================================
 function loadCart() {
     try {
@@ -260,22 +179,20 @@ function loadCart() {
             const rawCart = JSON.parse(saved);
             state.cart = rawCart.map(item => {
                 const product = state.products.find(p => String(p.id) === String(item.id));
-                if (!product) return null; // إزالة المنتج إذا تم حذفه من قاعدة البيانات
+                if (!product) return null;
 
                 const stock = getStock(product);
-                if (stock <= 0) return null; // إزالة المنتج إذا نفذ من المخزون تماماً
+                if (stock <= 0) return null;
 
                 const discount = product.discount ? Number(product.discount) : 0;
                 const basePrice = Number(product.price) || 0;
                 const finalPrice = discount > 0 ? Math.round(basePrice - (basePrice * discount / 100)) : basePrice;
                 
                 let safeQty = Math.max(1, Math.floor(Math.abs(Number(item.qty) || 1)));
-                if (safeQty > stock) {
-                    safeQty = stock; // تقييد الكمية لتناسب المخزون الحالي
-                }
+                if (safeQty > stock) safeQty = stock;
                 
                 return { ...item, name: product.name, basePrice, price: finalPrice, discount, qty: safeQty };
-            }).filter(Boolean); // فلترة وإزالة المنتجات الفارغة
+            }).filter(Boolean);
             saveCart();
         }
     } catch (e) { state.cart = []; }
@@ -385,7 +302,7 @@ export function updateCartBadge() {
 }
 
 // ============================================================
-//  حساب الإجمالي النهائي
+//  حساب الإجمالي النهائي (بدون كود دعوة)
 // ============================================================
 function calculateFinalTotal() {
     const itemsTotal = state.cart.reduce((sum, item) => {
@@ -393,15 +310,13 @@ function calculateFinalTotal() {
         return sum + (item.price * qty);
     }, 0);
 
-    const referralDiscount = getReferralDiscount(itemsTotal);
-
+    // خصم الكمية فقط (بدون كود دعوة)
     let smartDiscountPercent = 0;
     if (itemsTotal >= 1000) smartDiscountPercent = 10;
     else if (itemsTotal >= 500) smartDiscountPercent = 5;
 
     const smartDiscountAmount = Math.round(itemsTotal * (smartDiscountPercent / 100));
-    const totalDiscounts = smartDiscountAmount + referralDiscount;
-    const discountedItemsTotal = Math.max(0, itemsTotal - totalDiscounts);
+    const discountedItemsTotal = Math.max(0, itemsTotal - smartDiscountAmount);
 
     let deliveryCost = 0;
     if (state.deliveryType === 'inside') {
@@ -417,7 +332,6 @@ function calculateFinalTotal() {
         itemsTotal,
         smartDiscountPercent,
         smartDiscountAmount,
-        referralDiscount,
         discountedItemsTotal,
         deliveryCost,
         finalTotal
@@ -473,7 +387,6 @@ export function renderCartItems() {
         summaryDiv.innerHTML = `
             <div class="summary-line"><span>مجموع المنتجات:</span><span>${calc.itemsTotal} Lt</span></div>
             ${calc.smartDiscountPercent > 0 ? `<div class="summary-line discount-text"><span>🎉 خصم الكمية (${calc.smartDiscountPercent}%):</span><span>-${calc.smartDiscountAmount} Lt</span></div>` : ''}
-            ${calc.referralDiscount > 0 ? `<div class="summary-line discount-text"><span>🎁 خصم كود الدعوة (10%):</span><span>-${calc.referralDiscount} Lt</span></div>` : ''}
             <div class="summary-line"><span>🚚 التوصيل (${state.deliveryType === 'inside' ? 'داخل عمرانيا' : 'خارج ' + state.deliveryKm + ' كم'}):</span><span>${calc.deliveryCost} Lt</span></div>
             <div class="summary-line total"><span>💰 الإجمالي النهائي:</span><span>${calc.finalTotal} Lt</span></div>
         `;
@@ -541,7 +454,6 @@ export function initCheckoutForm() {
         submitBtn.disabled = true;
 
         try {
-            // المعاملة محصنة من الإعادة العشوائية (Retries)
             const { verifiedItems, verifiedItemsTotal } = await runTransaction(db, async (transaction) => {
                 let tVerifiedItems = [];
                 let tVerifiedItemsTotal = 0;
@@ -581,7 +493,6 @@ export function initCheckoutForm() {
                     }
                 }
 
-                // تنفيذ تحديث المخزون
                 for (const u of tUpdates) {
                     transaction.update(u.ref, { stock: u.newStock });
                 }
@@ -589,14 +500,13 @@ export function initCheckoutForm() {
                 return { verifiedItems: tVerifiedItems, verifiedItemsTotal: tVerifiedItemsTotal };
             });
 
-            const referralDiscount = getReferralDiscount(verifiedItemsTotal);
+            // حساب الخصومات بدون إحالة
             let smartDiscountPercent = 0;
             if (verifiedItemsTotal >= 1000) smartDiscountPercent = 10;
             else if (verifiedItemsTotal >= 500) smartDiscountPercent = 5;
 
             const smartDiscountAmount = Math.round(verifiedItemsTotal * (smartDiscountPercent / 100));
-            const totalDiscounts = smartDiscountAmount + referralDiscount;
-            const discountedItemsTotal = Math.max(0, verifiedItemsTotal - totalDiscounts);
+            const discountedItemsTotal = Math.max(0, verifiedItemsTotal - smartDiscountAmount);
 
             let deliveryCost = 0;
             if (state.deliveryType === 'inside') {
@@ -616,7 +526,6 @@ export function initCheckoutForm() {
                 total: finalTotal,
                 itemsTotal: verifiedItemsTotal,
                 smartDiscount: smartDiscountAmount,
-                referralDiscount: referralDiscount,
                 deliveryCost: deliveryCost,
                 deliveryType: state.deliveryType === 'inside' ? 'داخل عمرانيا' : `خارج عمرانيا (${state.deliveryKm} كم)`,
                 date: new Date().toLocaleString('ar-EG'),
@@ -627,15 +536,10 @@ export function initCheckoutForm() {
             const docRef = await addDoc(collection(db, "orders"), orderData);
 
             if (state.user) {
-                // إصلاح مشكلة Timestamp في LocalStorage
                 const localOrderData = { ...orderData, createdAt: new Date().toISOString() };
                 state.user.orders = state.user.orders || [];
                 state.user.orders.push({ id: docRef.id, ...localOrderData });
                 setUser(state.user);
-            }
-
-            if (referralDiscount > 0) {
-                applyReferralDiscount(verifiedItemsTotal);
             }
 
             lastOrderTime = Date.now();
@@ -657,7 +561,7 @@ export function initCheckoutForm() {
 }
 
 // ============================================================
-//  عرض المنتجات (معالجة متطورة لتوفر المخزون)
+//  عرض المنتجات (مع تحسينات مظهرية وأداء للصور)
 // ============================================================
 export function displayProducts(items, append = false) {
     const grid = document.getElementById('productsGrid');
@@ -709,29 +613,40 @@ export function displayProducts(items, append = false) {
         };
         card.appendChild(favBtn);
 
+        // تحسين حاوية الصورة مع تأثير fade-in
         const imgContainer = document.createElement('div');
         imgContainer.className = 'product-img';
+        
+        // عنصر placeholder يظهر أثناء التحميل
+        const placeholder = document.createElement('div');
+        placeholder.className = 'img-placeholder';
+        placeholder.innerHTML = '<i class="fa-solid fa-image"></i>';
+        imgContainer.appendChild(placeholder);
+
         if (isValid) {
             const img = document.createElement('img');
             img.src = imgUrl;
             img.alt = escapeHTML(p.name);
             img.loading = 'lazy';
+            img.decoding = 'async';
+            img.style.opacity = '0';
+            img.style.transition = 'opacity 0.4s ease';
+            
+            img.onload = () => {
+                img.style.opacity = '1';
+                if (placeholder) placeholder.style.display = 'none';
+            };
             img.onerror = () => {
                 img.style.display = 'none';
-                if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
+                if (placeholder) {
+                    placeholder.innerHTML = '<i class="fa-solid fa-basket-shopping"></i>';
+                    placeholder.style.display = 'flex';
+                }
             };
             imgContainer.appendChild(img);
-
-            const fallback = document.createElement('div');
-            fallback.className = 'no-img-fallback';
-            fallback.style.display = 'none';
-            fallback.innerHTML = '<i class="fa-solid fa-basket-shopping"></i>';
-            imgContainer.appendChild(fallback);
         } else {
-            const fallback = document.createElement('div');
-            fallback.className = 'no-img-fallback';
-            fallback.innerHTML = '<i class="fa-solid fa-basket-shopping"></i>';
-            imgContainer.appendChild(fallback);
+            placeholder.innerHTML = '<i class="fa-solid fa-basket-shopping"></i>';
+            placeholder.style.display = 'flex';
         }
         card.appendChild(imgContainer);
 
@@ -756,6 +671,7 @@ export function displayProducts(items, append = false) {
         info.appendChild(priceDiv);
         card.appendChild(info);
 
+        // أزرار المشاركة (بدون كود دعوة)
         const shareBtns = document.createElement('div');
         shareBtns.className = 'share-buttons';
         shareBtns.style.cssText = 'display:flex;gap:8px;margin:5px 0;justify-content:center;';
@@ -945,11 +861,10 @@ export function loadDarkModePreference() {
 }
 
 // ============================================================
-//  المشاركة
+//  المشاركة (بدون كود دعوة)
 // ============================================================
 export function shareProduct(platform, productName, productPrice) {
-    const code = getMyReferralCode();
-    const message = `🛍️ ${productName}\n💰 ${productPrice}\n🎁 كود خصم: ${code}\n📱 ${window.location.href}`;
+    const message = `🛍️ ${productName}\n💰 ${productPrice}\n📱 ${window.location.href}`;
     const encoded = encodeURIComponent(message);
     const links = {
         whatsapp: `https://wa.me/?text=${encoded}`,
@@ -1046,7 +961,7 @@ export function initProductsListener() {
         const newProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         state.products = newProducts;
         
-        loadCart(); // السلة تتحدث تلقائياً بعد جلب البيانات
+        loadCart();
         
         resetPagination();
         applyFilters();
@@ -1071,44 +986,80 @@ export function toggleInfoModal() {
 }
 
 // ============================================================
+//  التعامل مع الصوت (إصلاح وتحسين)
+// ============================================================
+function initAudio() {
+    const bgMusic = document.getElementById('bgMusic');
+    const toggleMusicBtn = document.getElementById('toggleMusicBtn');
+    const musicIcon = document.getElementById('musicIcon');
+
+    if (!bgMusic) return;
+
+    // إعدادات افتراضية: الصوت متوقف مؤقتاً وجاهز للتشغيل عند أول تفاعل
+    bgMusic.volume = 0.3;
+    bgMusic.muted = true; // مكتوم حتى يضغط المستخدم على زر الدخول أو زر الصوت
+
+    const playPromise = () => {
+        bgMusic.muted = false;
+        return bgMusic.play().catch(() => {
+            // ربما المتصفح يمنع التشغيل التلقائي، نعيد الكتم ولا نعرض خطأ
+            bgMusic.muted = true;
+        });
+    };
+
+    if (toggleMusicBtn && musicIcon) {
+        toggleMusicBtn.addEventListener('click', () => {
+            if (bgMusic.paused) {
+                playPromise().then(() => {
+                    musicIcon.className = 'fa-solid fa-volume-high';
+                }).catch(() => {
+                    musicIcon.className = 'fa-solid fa-volume-xmark';
+                });
+            } else {
+                bgMusic.pause();
+                musicIcon.className = 'fa-solid fa-volume-xmark';
+            }
+        });
+    }
+
+    // زر الدخول (إن وجد) يقوم بتشغيل الموسيقى بعد تفعيلها
+    const enterBtn = document.getElementById('enterBtn');
+    if (enterBtn) {
+        enterBtn.addEventListener('click', () => {
+            playPromise().then(() => {
+                if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high';
+            }).catch(() => {});
+        });
+    }
+
+    // معالجة خطأ تحميل ملف الصوت
+    bgMusic.addEventListener('error', () => {
+        console.warn('تعذر تحميل ملف الصوت، سيتم تعطيل الموسيقى.');
+        if (toggleMusicBtn) toggleMusicBtn.style.display = 'none';
+        if (musicIcon) musicIcon.className = 'fa-solid fa-volume-xmark';
+    });
+}
+
+// ============================================================
 //  تهيئة الصفحة الرئيسية
 // ============================================================
 export function initMainPage() {
     try {
         loadDarkModePreference();
 
-        const enterBtn = document.getElementById('enterBtn');
-        const bgMusic = document.getElementById('bgMusic');
-        const toggleMusicBtn = document.getElementById('toggleMusicBtn');
-        const musicIcon = document.getElementById('musicIcon');
-
-        if (enterBtn) {
-            enterBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                closeWelcomeOverlay();
-                if (bgMusic) {
-                    bgMusic.play()
-                        .then(() => { if (musicIcon) musicIcon.className = 'fa-solid fa-volume-high'; })
-                        .catch(() => {});
-                }
-            });
+        // بدلاً من كود الدعوة، نخفي الحاوية أو نعرض رسالة ترحيبية بسيطة
+        const referralContainer = document.getElementById('referralContainer');
+        if (referralContainer) {
+            referralContainer.innerHTML = '<p style="text-align:center;color:#888;margin:10px 0;">👋 أهلاً بك في متجر الأخوة</p>';
         }
 
+        // بدء نظام الصوت المحسن
+        initAudio();
+
+        // إخفاء شاشة الترحيب تلقائياً بعد 2 ثانية
         setTimeout(() => {
             closeWelcomeOverlay();
         }, 2000);
-
-        if (toggleMusicBtn && bgMusic && musicIcon) {
-            toggleMusicBtn.addEventListener('click', () => {
-                if (bgMusic.paused) {
-                    bgMusic.play().catch(() => {});
-                    musicIcon.className = 'fa-solid fa-volume-high';
-                } else {
-                    bgMusic.pause();
-                    musicIcon.className = 'fa-solid fa-volume-xmark';
-                }
-            });
-        }
 
         document.querySelectorAll('.dark-toggle').forEach(btn => {
             btn.addEventListener('click', toggleDarkMode);
@@ -1119,10 +1070,9 @@ export function initMainPage() {
         
         initProductsListener();
         initCheckoutForm();
-        handleReferral();
-        showReferralCode();
         updateUserUI();
 
+        // تصدير الدوال إلى window
         window.toggleFavorite = toggleFavorite;
         window.addToCart = addToCart;
         window.changeQty = changeQty;
@@ -1134,9 +1084,6 @@ export function initMainPage() {
         window.updateDelivery = updateDelivery;
         window.toggleInfoModal = toggleInfoModal;
         window.shareProduct = shareProduct;
-        window.copyReferralCode = copyReferralCode;
-        window.shareReferral = shareReferral;
-        window.getMyReferralCode = getMyReferralCode;
         window.loadMoreProducts = loadMoreProducts;
         window.logoutUser = logoutUser;
         window.showLoginModal = showLoginModal;

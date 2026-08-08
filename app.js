@@ -108,14 +108,13 @@ export function getStock(product) {
     return 99;
 }
 
+// دالة إغلاق الترحيب المضمونة والمباشرة
 export function closeWelcomeOverlay() {
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     if (welcomeOverlay) {
         welcomeOverlay.style.opacity = '0';
         welcomeOverlay.style.pointerEvents = 'none';
-        setTimeout(() => {
-            welcomeOverlay.style.display = 'none';
-        }, 300);
+        welcomeOverlay.style.display = 'none';
     }
 }
 
@@ -979,7 +978,7 @@ export function toggleInfoModal() {
 }
 
 // ============================================================
-//  التعامل مع الصوت والدخول (تم الإصلاح)
+//  التعامل مع الصوت والدخول
 // ============================================================
 function initAudio() {
     const bgMusic = document.getElementById('bgMusic');
@@ -987,10 +986,9 @@ function initAudio() {
     const musicIcon = document.getElementById('musicIcon');
     const enterBtn = document.getElementById('enterBtn');
 
-    // تفعيل زر الدخول للعمل بشكل مؤكد بغض النظر عن وجود عنصر الصوت
     if (enterBtn) {
-        enterBtn.addEventListener('click', (e) => {
-            e.preventDefault();
+        enterBtn.onclick = (e) => {
+            if (e) e.preventDefault();
             closeWelcomeOverlay();
             if (bgMusic) {
                 bgMusic.muted = false;
@@ -1000,7 +998,7 @@ function initAudio() {
                     bgMusic.muted = true;
                 });
             }
-        });
+        };
     }
 
     if (!bgMusic) return;
@@ -1008,34 +1006,43 @@ function initAudio() {
     bgMusic.volume = 0.3;
     bgMusic.muted = true;
 
-    const playPromise = () => {
-        bgMusic.muted = false;
-        return bgMusic.play().catch(() => {
-            bgMusic.muted = true;
-        });
-    };
-
     if (toggleMusicBtn && musicIcon) {
-        toggleMusicBtn.addEventListener('click', () => {
+        toggleMusicBtn.onclick = () => {
             if (bgMusic.paused) {
-                playPromise().then(() => {
+                bgMusic.muted = false;
+                bgMusic.play().then(() => {
                     musicIcon.className = 'fa-solid fa-volume-high';
                 }).catch(() => {
+                    bgMusic.muted = true;
                     musicIcon.className = 'fa-solid fa-volume-xmark';
                 });
             } else {
                 bgMusic.pause();
                 musicIcon.className = 'fa-solid fa-volume-xmark';
             }
-        });
+        };
     }
-
-    bgMusic.addEventListener('error', () => {
-        console.warn('تعذر تحميل ملف الصوت، سيتم تعطيل الموسيقى.');
-        if (toggleMusicBtn) toggleMusicBtn.style.display = 'none';
-        if (musicIcon) musicIcon.className = 'fa-solid fa-volume-xmark';
-    });
 }
+
+// ============================================================
+//  تصدير جميع الدوال لشبكة window فور تحميل الكود لحل أي مشكلة
+// ============================================================
+window.closeWelcomeOverlay = closeWelcomeOverlay;
+window.toggleFavorite = toggleFavorite;
+window.addToCart = addToCart;
+window.changeQty = changeQty;
+window.removeFromCart = removeFromCart;
+window.toggleCartModal = toggleCartModal;
+window.filterByCategory = filterByCategory;
+window.filterBySearch = filterBySearch;
+window.uploadImageToImgBB = uploadImageToImgBB;
+window.updateDelivery = updateDelivery;
+window.toggleInfoModal = toggleInfoModal;
+window.shareProduct = shareProduct;
+window.loadMoreProducts = loadMoreProducts;
+window.logoutUser = logoutUser;
+window.showLoginModal = showLoginModal;
+window.initProductsListener = initProductsListener;
 
 // ============================================================
 //  تهيئة الصفحة الرئيسية
@@ -1051,12 +1058,8 @@ export function initMainPage() {
 
         initAudio();
 
-        setTimeout(() => {
-            closeWelcomeOverlay();
-        }, 2000);
-
         document.querySelectorAll('.dark-toggle').forEach(btn => {
-            btn.addEventListener('click', toggleDarkMode);
+            btn.onclick = toggleDarkMode;
         });
 
         state.user = getUser();
@@ -1066,27 +1069,15 @@ export function initMainPage() {
         initCheckoutForm();
         updateUserUI();
 
-        window.toggleFavorite = toggleFavorite;
-        window.addToCart = addToCart;
-        window.changeQty = changeQty;
-        window.removeFromCart = removeFromCart;
-        window.toggleCartModal = toggleCartModal;
-        window.filterByCategory = filterByCategory;
-        window.filterBySearch = filterBySearch;
-        window.uploadImageToImgBB = uploadImageToImgBB;
-        window.updateDelivery = updateDelivery;
-        window.toggleInfoModal = toggleInfoModal;
-        window.shareProduct = shareProduct;
-        window.loadMoreProducts = loadMoreProducts;
-        window.logoutUser = logoutUser;
-        window.showLoginModal = showLoginModal;
-        window.initProductsListener = initProductsListener;
-        window.closeWelcomeOverlay = closeWelcomeOverlay;
-
         const loadMoreBtn = document.getElementById('loadMoreBtn');
         if (loadMoreBtn) {
-            loadMoreBtn.addEventListener('click', loadMoreProducts);
+            loadMoreBtn.onclick = loadMoreProducts;
         }
+
+        // تفادي الاحتجاز في الشاشة الترحيبية بأي حال من الأحوال
+        setTimeout(() => {
+            closeWelcomeOverlay();
+        }, 1500);
 
     } catch (e) {
         console.error("خطأ أثناء التهيئة الرئيسية:", e);
